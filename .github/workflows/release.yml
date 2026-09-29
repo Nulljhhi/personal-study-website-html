@@ -1,0 +1,73 @@
+# Builds Study Website for Linux, Windows, and macOS and attaches the
+# downloads to a GitHub Release.
+#
+# To publish a new version:
+#   1. Bump "version" in src-tauri/tauri.conf.json (e.g. 1.0.0 -> 1.1.0)
+#   2. git commit -am "Release v1.1.0"
+#   3. git tag v1.1.0 && git push && git push --tags
+# The builds take roughly 10-20 minutes; watch them in the Actions tab.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            args: "--bundles appimage,deb"
+          - platform: windows-latest
+            args: "--bundles nsis"
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin --bundles dmg"
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin --bundles dmg"
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "Study Website v__VERSION__"
+          releaseBody: |
+            **Which file do I download?**
+            - **Windows:** the `.exe` installer (`..._x64-setup.exe`)
+            - **Mac with Apple chip (M1 or newer):** the `aarch64.dmg`
+            - **Older Intel Mac:** the `x64.dmg`
+            - **Linux:** the `.AppImage` (any distro) or the `.deb` (Ubuntu/Debian)
+
+            The first time you open it you'll see a security warning because the app isn't code-signed. See the README for the one-time fix for your system.
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
