@@ -1,0 +1,3418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study Website</title>
+<style>
+  /* Single style block: a token-driven light/dark theme system. Every
+     color lives in the :root / :root[data-theme="dark"] token blocks
+     below; every other rule consumes them through var(). Motion is
+     limited to short color/shadow transitions, and the reduced-motion
+     guard at the bottom switches them off entirely. */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  /* ---------- Design tokens: light theme (the default) ---------- */
+  :root {
+    color-scheme: light;
+    --bg: #eef1f6;
+    --surface: #ffffff;
+    --surface-hover: #f0f4fa;
+    --surface-2: #f4f6fa;
+    --border: #d5dbe5;
+    --border-strong: #b9c2d0;
+    --text: #1f2430;
+    --text-muted: #55607a;
+    --primary: #2f6fed;
+    --primary-hover: #2558b8;
+    --primary-text: #ffffff;
+    --success: #2e7d32;
+    --success-strong: #256b29;
+    --danger: #d93025;
+    --danger-strong: #b3261e;
+    --focus-ring: #1d4ed8;
+    --glow-primary: 0 2px 10px rgba(47, 111, 237, 0.30);
+    --glow-primary-strong: 0 4px 18px rgba(47, 111, 237, 0.45);
+    --glow-success: 0 3px 14px rgba(37, 107, 41, 0.35);
+    --glow-danger: 0 3px 14px rgba(179, 38, 30, 0.35);
+    --glow-neutral: 0 1px 3px rgba(31, 42, 68, 0.18);
+    --glow-neutral-strong: 0 3px 10px rgba(31, 42, 68, 0.22);
+    --glow-card: 0 10px 28px rgba(47, 111, 237, 0.10), 0 4px 12px rgba(31, 42, 68, 0.10);
+    --overlay: rgba(15, 18, 25, 0.55);
+    --shadow-modal: 0 12px 34px rgba(15, 18, 25, 0.28);
+    --selected-bg: #e8f0fe;
+    --on-danger: #ffffff;
+    --home-chip-bg: #454c59;
+    --home-chip-hover: #333944;
+    --home-chip-text: #ffffff;
+    --disabled-bg: #d9dee7;
+    --disabled-border: #c6ccd6;
+    --disabled-text: #79818f;
+    --code-bg: #1f2430;
+    --code-text: #e8ecf3;
+  }
+
+  /* ---------- Design tokens: dark theme overrides ---------- */
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #131823;
+    --surface: #1b2330;
+    --surface-hover: #242e3e;
+    --surface-2: #293546;
+    --border: #333f52;
+    --border-strong: #46566e;
+    --text: #e9edf5;
+    --text-muted: #a6b3c9;
+    --primary: #5b9bff;
+    --primary-hover: #7db2ff;
+    --primary-text: #0c1526;
+    --success: #34c98a;
+    --success-strong: #3ecf8e;
+    --danger: #ff5d52;
+    --danger-strong: #ff6f64;
+    --focus-ring: #8ab8ff;
+    --glow-primary: 0 2px 12px rgba(91, 155, 255, 0.38);
+    --glow-primary-strong: 0 4px 22px rgba(91, 155, 255, 0.55);
+    --glow-success: 0 3px 16px rgba(62, 207, 142, 0.40);
+    --glow-danger: 0 3px 16px rgba(255, 111, 100, 0.40);
+    --glow-neutral: 0 1px 4px rgba(0, 0, 0, 0.40);
+    --glow-neutral-strong: 0 3px 12px rgba(0, 0, 0, 0.50);
+    --glow-card: 0 12px 32px rgba(91, 155, 255, 0.14), 0 4px 14px rgba(0, 0, 0, 0.45);
+    --overlay: rgba(4, 7, 13, 0.68);
+    --shadow-modal: 0 14px 40px rgba(0, 0, 0, 0.60);
+    --selected-bg: #24406e;
+    --on-danger: #26090b;
+    --home-chip-bg: #3d4a5f;
+    --home-chip-hover: #4d5d77;
+    --home-chip-text: #eef2f8;
+    --disabled-bg: #222a37;
+    --disabled-border: #303a49;
+    --disabled-text: #66738a;
+    --code-bg: #0d1118;
+    --code-text: #d7e0ef;
+  }
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* Screen router: exactly one section.screen carries .active */
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .hidden { display: none !important; }
+
+  /* Subtle theme-swap motion: only the five color/shadow properties,
+     160ms, no delay. Layout, visibility and transforms always apply
+     instantly. */
+  body, button, input, fieldset, .drop-zone, .docs-content, .docs-content code, .docs-content pre, .docs-content th, .docs-content td, .qa-pair, #flashcard-card, .tile, .tf-candidate, .review-item, .review-candidate, .review-choice, .modal-box, #board-complete, #quiz-count {
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, outline-color 160ms ease;
+  }
+  .subtitle, .drop-hint, .modal-hint, .review-number, .qa-a, .landing-error, .options-error, .not-answered-note {
+    transition: color 160ms ease;
+  }
+
+  .wrap { max-width: 780px; margin: 0 auto; padding: 72px 20px 110px; }
+  .screen-title { margin: 0 0 6px; font-size: 30px; }
+  .subtitle { color: var(--text-muted); margin: 0 0 22px; }
+
+  button {
+    font: inherit;
+    padding: 10px 20px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    box-shadow: var(--glow-neutral);
+  }
+  button:hover:enabled {
+    background: var(--surface-hover);
+    box-shadow: var(--glow-neutral-strong);
+  }
+  button:active:enabled {
+    transform: translateY(1px);
+    box-shadow: var(--glow-neutral);
+  }
+  button.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-text);
+    box-shadow: var(--glow-primary);
+  }
+  button.primary:hover:enabled {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+    box-shadow: var(--glow-primary-strong);
+  }
+  button.primary:active:enabled { box-shadow: var(--glow-primary); }
+  button:disabled,
+  button:disabled:hover {
+    background: var(--disabled-bg);
+    border-color: var(--disabled-border);
+    color: var(--disabled-text);
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  input { accent-color: var(--primary); }
+
+  /* Keyboard focus: a clear ring on every interactive control. */
+  button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* ---------- Landing ---------- */
+  .app-title { margin: 0 0 6px; font-size: 34px; }
+  .drop-zone {
+    border: 2px dashed var(--border-strong);
+    border-radius: 14px;
+    background: var(--surface);
+    padding: 52px 24px;
+    text-align: center;
+    font-size: 19px;
+  }
+  .drop-zone .drop-hint { display: block; margin-top: 6px; font-size: 14px; color: var(--text-muted); }
+  .drop-zone.drag-over {
+    border-color: var(--primary);
+    background: var(--selected-bg);
+    box-shadow: var(--glow-primary);
+  }
+  .landing-actions { display: flex; gap: 12px; margin-top: 18px; }
+  #quit-btn { position: fixed; bottom: 16px; right: 16px; z-index: 30; }
+  .landing-error { color: var(--danger-strong); font-weight: 600; min-height: 1.5em; margin: 14px 0 0; }
+
+  /* ---------- Documentation ---------- */
+  .docs-content { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 26px 30px; }
+  .docs-content h1 { font-size: 26px; margin: 0 0 14px; }
+  .docs-content h2 { font-size: 20px; margin: 26px 0 8px; }
+  .docs-content p { margin: 8px 0; }
+  .docs-content ul { margin: 8px 0; padding-left: 22px; }
+  .docs-content li { margin: 4px 0; }
+  .docs-content code { background: var(--surface-2); border-radius: 4px; padding: 1px 5px; }
+  .docs-content pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 10px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .docs-content pre code { background: var(--code-bg); color: inherit; padding: 0; }
+  .docs-content table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; }
+  .docs-content th, .docs-content td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+  .docs-content th { background: var(--surface-2); }
+  .docs-actions { display: flex; gap: 12px; margin-top: 18px; }
+
+  /* ---------- Home ---------- */
+  .unit-title { margin: 0 0 6px; font-size: 30px; }
+  .mode-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 20px 0 30px; }
+  .mode-buttons { grid-template-columns: repeat(4, 1fr); }
+  .mode-buttons button { padding: 18px 10px; font-size: 17px; }
+  .qa-heading { font-size: 20px; margin: 26px 0 10px; }
+  .qa-pair { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 10px 0; }
+  .qa-q { font-weight: 700; }
+  .qa-a { color: var(--success-strong); margin-top: 4px; }
+
+  /* ---------- Flashcard ---------- */
+  #flashcard-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--glow-card);
+    min-height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 34px;
+    text-align: center;
+    font-size: 23px;
+    cursor: pointer;
+  }
+  .card-face { max-width: 100%; overflow-wrap: anywhere; }
+  .flashcard-controls { display: flex; gap: 12px; justify-content: center; margin-top: 22px; }
+  .flashcard-controls button { min-width: 72px; font-size: 18px; }
+
+  /* ---------- Matching tiles ---------- */
+  .match-size-buttons { display: flex; flex-wrap: wrap; gap: 16px; margin: 28px 0; }
+  .match-size-btn { font-size: 24px; padding: 30px 36px; }
+  .match-grid { display: grid; gap: 8px; margin: 22px 0; }
+  #screen-match-board[data-size="6"] .wrap { max-width: 1240px; }
+  #screen-match-board[data-size="8"] .wrap { max-width: 1640px; }
+  .match-grid-scroll { overflow-x: auto; padding: 3px; }
+  #screen-match-board[data-size="6"] .match-grid,
+  #screen-match-board[data-size="8"] .match-grid {
+    min-width: var(--board-min-width);
+    gap: 12px;
+  }
+  #screen-match-board[data-size="6"] .tile,
+  #screen-match-board[data-size="8"] .tile {
+    min-width: 0;
+    min-height: 100px;
+    padding: 12px;
+    overflow-wrap: anywhere;
+  }
+  .tile {
+    background: var(--surface);
+    border: 2px solid var(--border-strong);
+    border-radius: 10px;
+    min-height: 64px;
+    padding: 8px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  /* Shared hover / selected / wrong feedback for tiles and quiz choices. */
+  button.tile:hover:enabled, .quiz-choices button.choice:hover:enabled {
+    border-color: var(--primary);
+    box-shadow: var(--glow-primary);
+  }
+  .tile.selected, .quiz-choices button.choice.selected {
+    border-color: var(--primary);
+    background: var(--selected-bg);
+    box-shadow: var(--glow-primary-strong);
+  }
+  .tile.selected:hover:enabled, .quiz-choices button.choice.selected:hover:enabled {
+    box-shadow: var(--glow-primary-strong);
+  }
+  #match-grid .tile.wrong {
+    border-color: var(--danger);
+    background: var(--danger);
+    color: var(--on-danger);
+    box-shadow: var(--glow-danger);
+  }
+  .tile.matched { visibility: hidden; }
+  #board-complete {
+    text-align: center;
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--success-strong);
+    background: var(--surface);
+    border: 1px solid var(--success);
+    border-radius: 12px;
+    box-shadow: var(--glow-success);
+    padding: 14px 18px;
+    margin: 18px auto;
+    max-width: 380px;
+  }
+  .board-actions { display: flex; justify-content: center; margin-top: 8px; }
+
+  /* ---------- Quiz / Exam option screens ---------- */
+  .option-row { margin: 14px 0; }
+  .option-row label { display: block; font-weight: 600; margin-bottom: 6px; }
+  #quiz-count {
+    font: inherit;
+    padding: 8px 12px;
+    width: 130px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+  }
+  fieldset { border: 1px solid var(--border); border-radius: 10px; margin: 16px 0; padding: 12px 18px 14px; }
+  legend { font-weight: 700; padding: 0 6px; }
+  label.option { display: block; margin: 8px 0; }
+  label.option input { margin-right: 8px; }
+  .options-error { color: var(--danger-strong); font-weight: 600; min-height: 1.4em; margin: 12px 0; }
+  .options-actions { margin-top: 16px; }
+
+  /* ---------- Quiz screen (shared with Exam) ---------- */
+  .quiz-question { font-size: 23px; margin: 0 0 18px; }
+  .tf-candidate {
+    background: var(--surface);
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .quiz-choices { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+  .quiz-choices button.choice { text-align: left; width: 100%; padding: 12px 16px; }
+  .quiz-controls { display: flex; gap: 12px; justify-content: center; margin-top: 22px; }
+  .quiz-controls button { min-width: 72px; }
+  .session-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .session-disclosure { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  #session-toggle-btn { width: 40px; height: 36px; padding: 0; font-size: 22px; line-height: 1; }
+  #session-panel { margin-bottom: 24px; }
+  .session-toolbar label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .session-meta, .session-status { color: var(--text-muted); font-size: 14px; overflow-wrap: anywhere; }
+  .session-status { min-height: 1.5em; margin: 6px 0 18px; }
+  .session-status:empty { display: none; }
+  .quiz-progress { margin: 16px 0; }
+  .quiz-progress p { margin: 0 0 6px; font-size: 14px; }
+  .quiz-progress progress { display: block; width: 100%; height: 14px; accent-color: var(--primary); }
+  .resume-actions { margin: 16px 0; display: flex; flex-wrap: wrap; gap: 12px; }
+  .landing-actions { flex-wrap: wrap; }
+
+  /* ---------- Saved folder / completed questions ---------- */
+  .folder-note { color: var(--text-muted); font-size: 14px; margin: 10px 0 0; }
+  .folder-note:empty { display: none; }
+  .folder-status { min-height: 1.4em; margin: 0 0 8px; font-size: 14px; color: var(--text-muted); }
+  .folder-status:empty { display: none; }
+  .folder-status.error { color: var(--danger-strong); font-weight: 600; }
+  .completed-summary { color: var(--text-muted); font-size: 15px; margin: 0; align-self: center; }
+  .completed-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    vertical-align: middle;
+    color: var(--success-strong);
+    border: 1px solid var(--success-strong);
+  }
+  .skip-hint { color: var(--text-muted); font-size: 14px; margin: 2px 0 0 26px; }
+  .review-completed-note { color: var(--success-strong); font-weight: 600; margin: 0 0 12px; }
+  .review-completed-note:empty { display: none; }
+
+  /* ---------- Checkpoints ---------- */
+  .home-top { display: flex; margin: 0 0 14px; }
+  .checkpoints-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+  .checkpoint-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 18px 0 28px; }
+  .checkpoint-tile {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  .checkpoint-tile:hover, .checkpoint-tile:focus-visible { border-color: var(--primary); box-shadow: var(--glow-primary); outline: none; }
+  .checkpoint-tile.broken { cursor: default; }
+  .checkpoint-tile.broken:hover { border-color: var(--border); box-shadow: none; }
+  .checkpoint-unit { font-weight: 700; margin: 0 0 8px; overflow-wrap: anywhere; font-size: 18px; line-height: 1.35; }
+  .checkpoint-mode {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    margin-right: 6px;
+  }
+  .checkpoint-mode.exam { color: var(--danger-strong); border-color: var(--danger-strong); }
+  .checkpoint-meta { color: var(--text-muted); font-size: 14px; margin: 6px 0 0; }
+  .checkpoint-tile { display: flex; flex-direction: column; }
+  .tile-body { flex: 1; }
+  .tile-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .tile-actions button { padding: 5px 14px; font-size: 14px; }
+  #checkpoints-error:empty { display: none; }
+  .checkpoints-empty { color: var(--text-muted); grid-column: 1 / -1; margin: 0; }
+  #banks-error:empty { display: none; }
+
+  /* ---------- Documentation page arrows ---------- */
+  .docs-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .docs-nav button { min-width: 56px; font-size: 18px; }
+  .docs-nav-label { text-align: center; font-weight: 600; color: var(--text-muted); font-size: 15px; }
+
+  /* ---------- Review screen ---------- */
+  .review-list { margin-top: 6px; }
+  .review-item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
+  .correct-outline { outline: 3px solid var(--success-strong); outline-offset: 1px; box-shadow: var(--glow-success); }
+  .picked-outline { outline: 3px solid var(--danger-strong); outline-offset: 1px; box-shadow: var(--glow-danger); }
+  .not-answered-note { color: var(--danger-strong); font-weight: 600; font-size: 14px; margin-top: 8px; }
+  .review-controls { display: flex; gap: 12px; justify-content: center; margin-top: 22px; }
+  .review-controls button { min-width: 72px; }
+  .review-number { color: var(--text-muted); font-size: 14px; font-weight: 600; margin: 0 0 6px; }
+  .review-question { font-size: 18px; font-weight: 700; margin: 0 0 12px; }
+  .review-candidate {
+    background: var(--surface-2);
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    font-weight: 600;
+  }
+  .review-choices { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .review-choice { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+
+  /* ---------- Return Home (fixed bottom-right corner of every mode screen) ---------- */
+  button.return-home {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    background: var(--home-chip-bg);
+    border-color: var(--home-chip-bg);
+    color: var(--home-chip-text);
+    z-index: 30;
+    box-shadow: var(--glow-neutral-strong);
+  }
+  button.return-home:hover:enabled {
+    background: var(--home-chip-hover);
+    border-color: var(--home-chip-hover);
+  }
+  button.return-home:active:enabled { box-shadow: var(--glow-neutral); }
+
+  /* ---------- Global theme toggle (fixed top-right, above every screen, below the modal) ---------- */
+  #theme-toggle-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 40;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    box-shadow: var(--glow-neutral-strong);
+  }
+  #theme-toggle-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--primary);
+    box-shadow: var(--glow-primary);
+  }
+  #theme-toggle-btn:active:enabled { box-shadow: var(--glow-neutral); }
+
+  /* ---------- Submit modal overlay ---------- */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: var(--overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 32px;
+    max-width: 430px;
+    width: calc(100% - 40px);
+    text-align: center;
+    box-shadow: var(--shadow-modal);
+  }
+  .modal-text { font-size: 19px; font-weight: 700; margin: 0 0 6px; }
+  .modal-hint { color: var(--text-muted); margin: 0 0 20px; }
+  .modal-actions { display: flex; gap: 12px; justify-content: center; }
+
+  /* =====================================================================
+     SIZE AND LAYOUT (desktop, designed for 1920x1080)
+     Everything is scaled up 25% with zoom, so a 16px size in the rules
+     above renders at 20px. Widths below are in those zoomed units:
+     a maximized 1920px window is about 1536 units wide.
+     ===================================================================== */
+  html { zoom: 1.25; }
+
+  .wrap { padding-top: 56px; }
+  .wrap-docs { max-width: 1100px; }
+  .wrap-wide { max-width: 1440px; }
+  .wrap-study { max-width: 1240px; }
+  #screen-match-board[data-size="8"] .wrap { max-width: none; }
+
+  /* Grey back buttons, matching Return Home */
+  button.back-btn {
+    background: var(--home-chip-bg);
+    border-color: var(--home-chip-bg);
+    color: var(--home-chip-text);
+    box-shadow: var(--glow-neutral-strong);
+  }
+  button.back-btn:hover:enabled {
+    background: var(--home-chip-hover);
+    border-color: var(--home-chip-hover);
+  }
+
+  /* Home: controls on the left (they stay in view), questions on the right */
+  .home-layout { display: grid; grid-template-columns: 470px minmax(0, 1fr); gap: 44px; align-items: start; }
+  .home-side { position: sticky; top: 56px; }
+  .home-side .unit-title { font-size: 28px; line-height: 1.25; overflow-wrap: anywhere; }
+  .home-side .mode-buttons { grid-template-columns: repeat(2, 1fr); margin: 18px 0 20px; gap: 14px; }
+  .home-side .mode-buttons button { padding: 26px 10px; font-size: 20px; }
+  .home-side .resume-actions { margin: 0 0 12px; display: grid; grid-template-columns: 1fr 1fr; }
+  .home-side .resume-actions button { width: 100%; }
+  .home-side .resume-actions .resume-session-btn { grid-column: 1 / -1; }
+  .home-side .completed-summary { margin: 0 0 8px; }
+  .home-main .qa-heading { margin-top: 0; }
+  .home-main .qa-pair:first-of-type { margin-top: 0; }
+
+  /* Flashcard / Quiz / Exam / Review: bigger text and targets */
+  #flashcard-card { min-height: 440px; font-size: 32px; padding: 48px; line-height: 1.35; }
+  .flashcard-controls { margin-top: 28px; gap: 16px; }
+  .flashcard-controls button, .quiz-controls button, .review-controls button { min-width: 110px; padding: 14px 26px; font-size: 20px; }
+  .quiz-question { font-size: 30px; line-height: 1.3; margin-bottom: 24px; }
+  .tf-candidate { font-size: 22px; padding: 18px 22px; }
+  .quiz-choices { gap: 14px; margin: 24px 0; }
+  .quiz-choices button.choice { font-size: 21px; padding: 20px 24px; line-height: 1.35; }
+  .quiz-controls { margin-top: 30px; gap: 16px; }
+  .review-question { font-size: 26px; line-height: 1.3; }
+  .review-choice { font-size: 20px; padding: 16px 20px; }
+  .review-candidate { font-size: 21px; }
+  .review-item { padding: 26px 30px; }
+
+  /* Rename popup text field */
+  .text-input {
+    font: inherit;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    margin-top: 4px;
+  }
+  .modal-box { max-width: 520px; }
+  .modal-box .options-error { margin: 8px 0 14px; min-height: 0; }
+
+  /* Popup messages (bottom-left) and Home stat boxes share one look:
+     a small card with text and a blue bar along the bottom. */
+  #toast-stack {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    z-index: 60;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    max-width: 440px;
+    pointer-events: none;
+  }
+  .toast, .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    box-shadow: var(--glow-neutral-strong);
+    padding: 10px 14px 12px;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 15px;
+    overflow-wrap: anywhere;
+  }
+  .toast { pointer-events: auto; animation: toast-in 180ms ease-out; }
+  .toast.error { color: var(--danger-strong); }
+  .toast-bar, .stat-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--primary);
+    margin-top: 8px;
+  }
+  .toast.error .toast-bar { background: var(--danger-strong); }
+  .toast-bar { width: 100%; animation: toast-bar linear forwards; }
+  .toast.leaving { opacity: 0; transition: opacity 200ms ease; }
+  @keyframes toast-bar { from { width: 100%; } to { width: 0%; } }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .stat-box { margin: 0 0 12px; }
+  .stat-track { background: var(--surface-2); border-radius: 2px; margin-top: 8px; }
+  .stat-track .stat-bar { margin-top: 0; width: 0; transition: width 400ms ease; }
+  .stat-box .stat-label { color: var(--text-muted); font-weight: 600; font-size: 13px; display: block; margin-bottom: 2px; }
+  .landing-error:empty, .options-error:empty { display: none; }
+
+  /* Reduced motion: every color/shadow motion is switched off. */
+  @media (prefers-reduced-motion: reduce) {
+    .toast { animation: none; }
+
+    body, button, input, fieldset, .drop-zone, .docs-content, .docs-content code, .docs-content pre, .docs-content th, .docs-content td, .qa-pair, #flashcard-card, .tile, .tf-candidate, .review-item, .review-candidate, .review-choice, .modal-box, #board-complete, #quiz-count, .subtitle, .drop-hint, .modal-hint, .review-number, .qa-a, .landing-error, .options-error, .not-answered-note {
+      transition: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================== Landing ======================== -->
+<section class="screen active" id="screen-landing">
+  <div class="wrap">
+    <h1 class="app-title">Study Website</h1>
+    <p class="subtitle">Load a unit file to start studying. Your file stays on this device; nothing is sent anywhere.</p>
+    <div id="drop-zone" class="drop-zone">
+      <strong>Drag &amp; drop your unit file here</strong>
+      <span class="drop-hint">a plain-text question file (see the Documentation)</span>
+    </div>
+    <div class="landing-actions">
+      <button id="select-file-btn" type="button" class="primary">Select file</button>
+      <button id="docs-link" type="button">Documentation</button>
+      <button type="button" class="resume-session-btn">Resume saved progress</button>
+      <button id="open-saved-bank-btn" type="button">Open saved bank</button>
+      <button id="quit-btn" type="button" class="back-btn hidden">Quit</button>
+    </div>
+    <p id="landing-folder-note" class="folder-note"></p>
+    <input type="file" id="file-input" class="hidden">
+    <p id="landing-error" class="landing-error" role="alert"></p>
+  </div>
+</section>
+
+<!-- ======================== Documentation ======================== -->
+<section class="screen" id="screen-docs">
+  <div class="wrap wrap-docs">
+    <nav class="docs-nav" aria-label="Documentation pages">
+      <button id="docs-prev-btn" type="button" aria-label="Previous documentation page">&#8592;</button>
+      <span id="docs-nav-label" class="docs-nav-label" aria-live="polite"></span>
+      <button id="docs-next-btn" type="button" aria-label="Next documentation page">&#8594;</button>
+    </nav>
+    <div id="docs-content" class="docs-content"></div>
+    <div class="docs-actions">
+      <button id="download-md-btn" type="button" class="primary">Download as Markdown</button>
+      <button id="docs-back-btn" type="button" class="back-btn">Back</button>
+    </div>
+  </div>
+</section>
+
+<!-- ======================== Home ======================== -->
+<section class="screen" id="screen-home">
+  <div class="wrap wrap-wide">
+    <div class="home-layout">
+      <div class="home-side">
+        <div class="home-top"><button id="back-to-landing-btn" type="button" class="back-btn">&#8592; Change unit</button></div>
+        <h1 id="unit-title" class="unit-title"></h1>
+        <p class="subtitle">Choose a study mode, or review every question with its real answer.</p>
+        <div class="mode-buttons">
+          <button id="mode-flashcard-btn" type="button" class="primary">Flashcard</button>
+          <button id="mode-quiz-btn" type="button" class="primary">Quiz</button>
+          <button id="mode-match-btn" type="button" class="primary">Matching Tiles</button>
+          <button id="mode-exam-btn" type="button" class="primary">Exam</button>
+        </div>
+        <div class="resume-actions">
+          <button type="button" class="resume-session-btn">Resume saved progress</button>
+          <button id="save-bank-btn" type="button">Save to folder</button>
+          <button id="reset-completed-btn" type="button">Reset completed</button>
+        </div>
+        <div class="stat-box" id="completed-box">
+          <span id="completed-summary"></span>
+          <div class="stat-track"><div id="completed-bar" class="stat-bar"></div></div>
+        </div>
+        <div class="stat-box hidden" id="bank-path-box">
+          <span class="stat-label">Saved to</span>
+          <span id="bank-path-text"></span>
+          <div class="stat-bar"></div>
+        </div>
+      </div>
+      <div class="home-main">
+        <h2 class="qa-heading">All questions</h2>
+        <div id="qa-list" class="qa-list"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================== Flashcard ======================== -->
+<section class="screen" id="screen-flashcard">
+  <div class="wrap wrap-study">
+    <div id="flashcard-card" class="flashcard-card">
+      <div id="card-question" class="card-face"></div>
+      <div id="card-answer" class="card-face hidden"></div>
+    </div>
+    <div class="flashcard-controls">
+      <button id="prev-card-btn" type="button">&#8592;</button>
+      <button id="flip-btn" type="button" class="primary">Flip</button>
+      <button id="next-card-btn" type="button">&#8594;</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Match Size ======================== -->
+<section class="screen" id="screen-match-size">
+  <div class="wrap">
+    <h1 class="screen-title">Matching Tiles</h1>
+    <p class="subtitle">Choose a board size.</p>
+    <div class="match-size-buttons">
+      <button class="match-size-btn" data-size="4" type="button">4&#215;4</button>
+      <button class="match-size-btn" data-size="6" type="button">6&#215;6</button>
+      <button class="match-size-btn" data-size="8" type="button">8&#215;8</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Match Board ======================== -->
+<section class="screen" id="screen-match-board">
+  <div class="wrap">
+    <h1 id="match-size-label" class="screen-title"></h1>
+    <div class="match-grid-scroll" tabindex="0" role="region" aria-label="Matching board; scroll horizontally on smaller screens">
+      <div id="match-grid" class="match-grid"></div>
+    </div>
+    <p id="board-complete" class="board-complete hidden">Board complete!</p>
+    <div class="board-actions">
+      <button id="shuffle-btn" type="button" class="primary">Shuffle</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Quiz Options ======================== -->
+<section class="screen" id="screen-quiz-options">
+  <div class="wrap">
+    <h1 class="screen-title">Quiz Options</h1>
+    <fieldset>
+      <legend>Completed questions</legend>
+      <label class="option"><input type="checkbox" id="skip-completed"> Skip completed questions</label>
+      <p id="skip-completed-hint" class="skip-hint"></p>
+    </fieldset>
+    <div class="option-row">
+      <label for="quiz-count">Number of questions</label>
+      <input type="number" id="quiz-count" min="1" max="1" value="1">
+    </div>
+    <fieldset>
+      <legend>Difficulty</legend>
+      <label class="option"><input type="radio" name="quiz-difficulty" value="easy" checked> Easy</label>
+      <label class="option"><input type="radio" name="quiz-difficulty" value="medium"> Medium</label>
+      <label class="option"><input type="radio" name="quiz-difficulty" value="hard"> Hard</label>
+    </fieldset>
+    <fieldset>
+      <legend>Question types</legend>
+      <label class="option"><input type="checkbox" id="type-mc" checked> Multiple Choice</label>
+      <label class="option"><input type="checkbox" id="type-tf" checked> True/False</label>
+    </fieldset>
+    <p id="quiz-options-error" class="options-error" role="alert"></p>
+    <div class="options-actions">
+      <button id="quiz-start-btn" type="button" class="primary">Start Quiz</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Quiz (shared with Exam) ======================== -->
+<section class="screen" id="screen-quiz">
+  <div class="wrap wrap-study">
+    <div class="session-disclosure">
+      <button id="session-toggle-btn" type="button" aria-expanded="true" aria-controls="session-panel" aria-label="Hide study controls" title="Hide study controls">&#8743;</button>
+    </div>
+    <div id="session-panel">
+    <div class="session-toolbar">
+      <label><input id="show-progress" type="checkbox" checked aria-controls="quiz-progress"> Show progress</label>
+      <label><input id="show-seed" type="checkbox" checked aria-controls="session-meta"> Show seed</label>
+      <button id="save-progress-btn" type="button">Save progress</button>
+    </div>
+    <p id="session-meta" class="session-meta"></p>
+    <div id="quiz-progress" class="quiz-progress">
+      <p id="quiz-progress-text" aria-live="polite"></p>
+      <progress id="quiz-progress-bar" value="0" max="1" aria-labelledby="quiz-progress-text"></progress>
+    </div>
+    <p id="save-progress-status" class="session-status" role="status"></p>
+    </div>
+    <h2 id="quiz-question-text" class="quiz-question"></h2>
+    <p id="tf-candidate" class="tf-candidate hidden"></p>
+    <div id="quiz-choices" class="quiz-choices"></div>
+    <div class="quiz-controls">
+      <button id="quiz-prev-btn" type="button">&#8592;</button>
+      <button id="submit-quiz-btn" type="button">Submit</button>
+      <button id="quiz-next-btn" type="button">&#8594;</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Quiz Review (shared with Exam) ======================== -->
+<section class="screen" id="screen-quiz-review">
+  <div class="wrap wrap-study">
+    <h1 class="screen-title">Review</h1>
+    <p id="review-completed-note" class="review-completed-note" role="status"></p>
+    <div id="review-list" class="review-list"></div>
+    <div class="review-controls">
+      <button id="review-prev-btn" type="button">&#8592;</button>
+      <button id="review-next-btn" type="button">&#8594;</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Exam Options ======================== -->
+<!-- ======================== Question banks ======================== -->
+<section class="screen" id="screen-banks">
+  <div class="wrap wrap-wide">
+    <div class="checkpoints-header">
+      <h1 class="screen-title">Question banks</h1>
+    </div>
+    <p class="subtitle">Pick a saved bank to study. Use Rename or Delete to manage them.</p>
+    <p id="banks-error" class="landing-error" role="alert"></p>
+    <div id="bank-grid" class="checkpoint-grid"></div>
+    <button id="banks-back-btn" type="button" class="back-btn">Back</button>
+  </div>
+</section>
+
+<!-- ======================== Checkpoints ======================== -->
+<section class="screen" id="screen-checkpoints">
+  <div class="wrap wrap-wide">
+    <div class="checkpoints-header">
+      <h1 class="screen-title">Saved checkpoints</h1>
+      <button id="checkpoint-import-btn" type="button">Import from file</button>
+    </div>
+    <p class="subtitle">Pick a checkpoint to continue where you left off.</p>
+    <p id="checkpoints-error" class="landing-error" role="alert"></p>
+    <div id="checkpoint-grid" class="checkpoint-grid"></div>
+    <button id="checkpoints-back-btn" type="button" class="back-btn">Back</button>
+  </div>
+</section>
+
+<section class="screen" id="screen-exam-options">
+  <div class="wrap">
+    <h1 class="screen-title">Exam Options</h1>
+    <p class="subtitle">An exam always uses every question in the unit.</p>
+    <fieldset>
+      <legend>Difficulty</legend>
+      <label class="option"><input type="radio" name="exam-difficulty" value="easy" checked> Easy</label>
+      <label class="option"><input type="radio" name="exam-difficulty" value="medium"> Medium</label>
+      <label class="option"><input type="radio" name="exam-difficulty" value="hard"> Hard</label>
+    </fieldset>
+    <fieldset>
+      <legend>Question types</legend>
+      <label class="option"><input type="checkbox" id="exam-type-mc" checked> Multiple Choice</label>
+      <label class="option"><input type="checkbox" id="exam-type-tf" checked> True/False</label>
+    </fieldset>
+    <p id="exam-options-error" class="options-error" role="alert"></p>
+    <div class="options-actions">
+      <button id="exam-start-btn" type="button" class="primary">Start Exam</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Submit modal overlay ======================== -->
+<div id="submit-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Are you sure you want to submit?</p>
+    <p class="modal-hint">Some questions are still unanswered.</p>
+    <div class="modal-actions">
+      <button id="submit-back-btn" type="button">Go back</button>
+      <button id="submit-continue-btn" type="button" class="primary">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== Reset completed modal ======================== -->
+<div id="reset-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Reset completed questions?</p>
+    <p class="modal-hint">Every question in this unit will be marked as not completed.</p>
+    <div class="modal-actions">
+      <button id="reset-cancel-btn" type="button">Cancel</button>
+      <button id="reset-confirm-btn" type="button" class="primary">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== Checkpoint modals ======================== -->
+<div id="checkpoint-delete-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Delete this checkpoint?</p>
+    <p id="checkpoint-delete-hint" class="modal-hint"></p>
+    <div class="modal-actions">
+      <button id="checkpoint-delete-cancel-btn" type="button">Cancel</button>
+      <button id="checkpoint-delete-confirm-btn" type="button" class="primary">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="checkpoint-done-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Delete the checkpoint for this attempt?</p>
+    <p class="modal-hint">You've submitted it, so you probably won't need to resume it again.</p>
+    <div class="modal-actions">
+      <button id="checkpoint-done-keep-btn" type="button">Keep</button>
+      <button id="checkpoint-done-delete-btn" type="button" class="primary">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== Bank modals ======================== -->
+<div id="bank-rename-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="bank-rename-title">
+    <p id="bank-rename-title" class="modal-text">Rename question bank</p>
+    <p class="modal-hint">Tip: name it "topic; date", for example <em>Cell Biology; Sep 2026</em>.</p>
+    <input id="bank-rename-input" class="text-input" type="text" autocomplete="off" spellcheck="false" aria-label="New name">
+    <p id="bank-rename-error" class="options-error" role="alert"></p>
+    <div class="modal-actions">
+      <button id="bank-rename-cancel-btn" type="button">Cancel</button>
+      <button id="bank-rename-save-btn" type="button" class="primary">Rename</button>
+    </div>
+  </div>
+</div>
+
+<div id="bank-delete-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Delete this question bank?</p>
+    <p id="bank-delete-hint" class="modal-hint"></p>
+    <div class="modal-actions">
+      <button id="bank-delete-cancel-btn" type="button">Cancel</button>
+      <button id="bank-delete-confirm-btn" type="button" class="primary">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-stack" aria-live="polite"></div>
+
+<!-- ======================== Global theme toggle ======================== -->
+<input type="file" id="resume-file-input" class="hidden" accept=".json,application/json">
+<p id="resume-error" class="wrap hidden" style="padding-top: 16px; padding-bottom: 16px;" role="alert"></p>
+<button id="theme-toggle-btn" type="button" aria-label="Switch to dark mode">&#9790; Dark mode</button>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =====================================================================
+     1. PURE CORE FUNCTIONS
+     Seeded RNG, parser, distractor/choice builders, board tiles, docs.
+     Everything in this section is deterministic and side-effect free.
+     ===================================================================== */
+
+  function mulberry32(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function seededShuffle(items, seed) {
+    var copy = items.slice();
+    var rng = mulberry32(seed);
+    for (var i = copy.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var tmp = copy[i];
+      copy[i] = copy[j];
+      copy[j] = tmp;
+    }
+    return copy;
+  }
+
+  function deriveSeed(base, i) {
+    return (base ^ (i * 0x9E3779B9)) >>> 0;
+  }
+
+  /* ------------------------- unit file parser ------------------------- */
+
+  var UNIT_TITLE_TAG = "unit_title";
+  var BLOCK_TAGS = [
+    "question",
+    "answer",
+    "medium_fake_answer_1",
+    "medium_fake_answer_2",
+    "medium_fake_answer_3",
+    "hard_fake_answer_1",
+    "hard_fake_answer_2",
+    "hard_fake_answer_3"
+  ];
+
+  function tagNameOf(line) {
+    var colon = line.indexOf(":");
+    if (colon === -1) return line;
+    return line.slice(0, colon).trim();
+  }
+
+  function tagValueOf(line) {
+    var colon = line.indexOf(":");
+    if (colon === -1) return "";
+    return line.slice(colon + 1).trim();
+  }
+
+  function parseUnitFile(text) {
+    if (typeof text !== "string") {
+      throw new Error("The unit file is empty or unreadable: no text content was found.");
+    }
+    var rawLines = text.split(/\r\n|\r|\n/);
+    var lines = [];
+    for (var i = 0; i < rawLines.length; i++) lines.push(rawLines[i].trim());
+
+    var firstNonBlank = -1;
+    for (var f = 0; f < lines.length; f++) {
+      if (lines[f] !== "") { firstNonBlank = f; break; }
+    }
+    if (firstNonBlank === -1) {
+      throw new Error("The unit file is empty or unreadable: no content was found.");
+    }
+
+    var titleLineCount = 0;
+    var firstTitleLine = -1;
+    for (var t = 0; t < lines.length; t++) {
+      if (lines[t].indexOf(":") !== -1 && tagNameOf(lines[t]) === UNIT_TITLE_TAG) {
+        titleLineCount++;
+        if (firstTitleLine === -1) firstTitleLine = t;
+      }
+    }
+    if (titleLineCount === 0) {
+      throw new Error('Missing unit_title: the file must contain a "unit_title:" line naming the study unit.');
+    }
+    if (firstTitleLine !== firstNonBlank) {
+      throw new Error("The unit_title must be the first non-blank line of the file.");
+    }
+    if (titleLineCount > 1) {
+      throw new Error("Duplicate unit_title: the file may contain only one unit_title line.");
+    }
+
+    var unitTitle = tagValueOf(lines[firstNonBlank]);
+    if (unitTitle === "") {
+      throw new Error('Empty unit_title: write the unit\'s name after "unit_title:", for example "unit_title: Cell Biology; Sep 2026".');
+    }
+
+    var blocks = [];
+    var current = null;
+    for (var m = firstNonBlank + 1; m < lines.length; m++) {
+      var line = lines[m];
+      if (line === "") {
+        if (current) { blocks.push(current); current = null; }
+        continue;
+      }
+      if (!current) current = [];
+      current.push(line);
+    }
+    if (current) blocks.push(current);
+
+    if (blocks.length === 0) {
+      throw new Error("No question blocks found: the file must contain at least one question block.");
+    }
+
+    var questions = [];
+    for (var b = 0; b < blocks.length; b++) {
+      var blockLines = blocks[b];
+      var firstTag = tagNameOf(blockLines[0]);
+      if (firstTag !== "question") {
+        throw new Error('Every question block must start with a "question:" line; block ' + (b + 1) + ' starts with "' + firstTag + '".');
+      }
+      var values = {};
+      for (var l = 0; l < blockLines.length; l++) {
+        var tag = tagNameOf(blockLines[l]);
+        if (tag === UNIT_TITLE_TAG) {
+          throw new Error("Duplicate unit_title: the file may contain only one unit_title line.");
+        }
+        if (BLOCK_TAGS.indexOf(tag) === -1) {
+          throw new Error('Unknown tag "' + tag + '": the unit file format does not include this tag.');
+        }
+        if (Object.prototype.hasOwnProperty.call(values, tag)) {
+          throw new Error('Duplicate tag "' + tag + '": each tag may appear only once per question block.');
+        }
+        var value = tagValueOf(blockLines[l]);
+        if (value === "") {
+          throw new Error('Empty value for tag "' + tag + '": every tag needs a value after the colon.');
+        }
+        values[tag] = value;
+      }
+      for (var r = 0; r < BLOCK_TAGS.length; r++) {
+        if (!Object.prototype.hasOwnProperty.call(values, BLOCK_TAGS[r])) {
+          throw new Error('Question block ' + (b + 1) + ' is missing the required tag "' + BLOCK_TAGS[r] + '".');
+        }
+      }
+      questions.push({
+        id: questions.length,
+        question: values.question,
+        answer: values.answer,
+        mediumFakes: [values.medium_fake_answer_1, values.medium_fake_answer_2, values.medium_fake_answer_3],
+        hardFakes: [values.hard_fake_answer_1, values.hard_fake_answer_2, values.hard_fake_answer_3]
+      });
+    }
+
+    return { unitTitle: unitTitle, questions: questions };
+  }
+
+  /* ------------------- distractors / choices / tiles ------------------- */
+
+  function easyDistractors(unit, questionId, seed) {
+    var own = null;
+    var others = [];
+    var questions = unit && unit.questions ? unit.questions : [];
+    for (var i = 0; i < questions.length; i++) {
+      if (questions[i].id === questionId) own = questions[i];
+      else others.push(questions[i].answer);
+    }
+    if (others.length === 0) {
+      return own ? own.mediumFakes.slice() : [];
+    }
+    if (others.length >= 3) {
+      return seededShuffle(others, seed).slice(0, 3);
+    }
+    var rng = mulberry32(seed);
+    var picks = [];
+    for (var k = 0; k < 3; k++) {
+      picks.push(others[Math.floor(rng() * others.length)]);
+    }
+    return picks;
+  }
+
+  function selectFirstN(questions, n, seed) {
+    var shuffled = seededShuffle(questions, seed);
+    var take = Math.min(n, shuffled.length);
+    if (take < 0) take = 0;
+    return shuffled.slice(0, take);
+  }
+
+  function assignTrueFalse(count, types) {
+    var hasTf = false;
+    var hasOther = false;
+    for (var i = 0; i < types.length; i++) {
+      if (types[i] === "tf") hasTf = true;
+      else hasOther = true;
+    }
+    var flags = [];
+    for (var j = 0; j < count; j++) {
+      if (!hasTf) flags.push(false);
+      else if (!hasOther) flags.push(true);
+      else flags.push(j % 4 === 3);
+    }
+    return flags;
+  }
+
+  /* Generator v1: the original wrong-answer picker. Kept only so that
+     checkpoints saved before v2 (which don't store their choices) rebuild
+     exactly the choices they were answered against. */
+  function wrongAnswersV1(unit, question, difficulty, seed) {
+    if (difficulty === "easy") return easyDistractors(unit, question.id, seed);
+    if (difficulty === "medium") return question.mediumFakes.slice();
+    return question.hardFakes.slice();
+  }
+
+  function normalizeAnswer(text) {
+    return String(text).trim().replace(/\s+/g, " ").toLowerCase();
+  }
+
+  /* Generator v2: three wrong answers that never repeat each other and
+     never match the real answer (a real answer shared by two questions
+     used to show up twice, with only one copy accepted). Easy draws from
+     the other questions' answers; medium and hard use the question's own
+     fakes. Shortfalls are filled from the question's other fakes. */
+  function wrongAnswersV2(unit, question, difficulty, seed) {
+    var others = [];
+    var questions = unit && unit.questions ? unit.questions : [];
+    for (var i = 0; i < questions.length; i++) {
+      if (questions[i].id !== question.id) others.push(questions[i].answer);
+    }
+    var sources;
+    if (difficulty === "easy") {
+      sources = [seededShuffle(others, seed), question.mediumFakes, question.hardFakes];
+    } else if (difficulty === "medium") {
+      sources = [question.mediumFakes, question.hardFakes, seededShuffle(others, seed)];
+    } else {
+      sources = [question.hardFakes, question.mediumFakes, seededShuffle(others, seed)];
+    }
+    var seen = {};
+    seen[normalizeAnswer(question.answer)] = true;
+    var picks = [];
+    for (var s = 0; s < sources.length && picks.length < 3; s++) {
+      for (var k = 0; k < sources[s].length && picks.length < 3; k++) {
+        var key = normalizeAnswer(sources[s][k]);
+        if (seen[key]) continue;
+        seen[key] = true;
+        picks.push(sources[s][k]);
+      }
+    }
+    return picks;
+  }
+
+  function wrongAnswersFor(unit, question, difficulty, seed, legacy) {
+    return legacy
+      ? wrongAnswersV1(unit, question, difficulty, seed)
+      : wrongAnswersV2(unit, question, difficulty, seed);
+  }
+
+  function buildMcChoices(unit, question, difficulty, seed, legacy) {
+    var wrong = wrongAnswersFor(unit, question, difficulty, seed, legacy);
+    var rng = mulberry32(seed);
+    var correctSlot = "abcd".charAt(Math.floor(rng() * 4));
+    for (var i = wrong.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var tmp = wrong[i];
+      wrong[i] = wrong[j];
+      wrong[j] = tmp;
+    }
+    var choices = { a: "", b: "", c: "", d: "", correctSlot: correctSlot };
+    choices[correctSlot] = question.answer;
+    var remaining = [];
+    for (var s = 0; s < 4; s++) {
+      var slot = "abcd".charAt(s);
+      if (slot !== correctSlot) remaining.push(slot);
+    }
+    for (var w = 0; w < remaining.length && w < wrong.length; w++) {
+      choices[remaining[w]] = wrong[w];
+    }
+    return choices;
+  }
+
+  function buildTfCandidate(unit, question, difficulty, seed, legacy) {
+    var rng = mulberry32(seed);
+    if (rng() < 0.5) {
+      return { candidate: question.answer, isReal: true };
+    }
+    var pool = wrongAnswersFor(unit, question, difficulty, seed, legacy);
+    if (!pool.length) return { candidate: question.answer, isReal: true };
+    var pick = pool[Math.floor(rng() * pool.length)];
+    return { candidate: pick, isReal: false };
+  }
+
+  function buildBoardTiles(pairs, seed) {
+    var tiles = [];
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i];
+      tiles.push({ pairId: pair.id, kind: "question", text: pair.question });
+      tiles.push({ pairId: pair.id, kind: "answer", text: pair.answer });
+    }
+    return seededShuffle(tiles, seed);
+  }
+
+  /* ---------------------------- documentation ---------------------------- */
+
+  var DOCS_LINES = [
+    "# Study Website — Unit File Documentation",
+    "",
+    "## What a unit file is",
+    "",
+    "The study website reads a question bank that you provide as a **unit file**: a plain-text file you can create and edit in any plain-text editor (Notepad, TextEdit, or any code editor). Every line is a tag, a colon, and a value, for example `question: What is 2 + 2?`. After you load the file, the app turns it into flashcards, quizzes, matching boards, and exams.",
+    "",
+    "## How to create one",
+    "",
+    "- Open any plain-text editor and create a new plain-text file.",
+    "- Write the unit title on the first non-blank line using the `unit_title` tag. We recommend naming it **topic; date**, for example `unit_title: Cell Biology; Sep 2026`. Banks are listed alphabetically, so this keeps every version of a topic together and tells them apart by date.",
+    "- Leave a blank line, then add one block per question.",
+    "- Start every block with a `question:` line, then give the answer and the six fake answers.",
+    "- Separate the blocks with blank lines and save the file as .txt (for example my-unit.txt).",
+    "",
+    "## File rules",
+    "",
+    "- Lines have the form `tag: value`; the tag is everything before the first colon and the value is everything after it.",
+    "- Exactly one `unit_title` line is allowed, and it must be the first non-blank line of the file.",
+    "- Every question block must start with its `question:` line.",
+    "- Each tag may appear only once inside a block, every listed tag is required, and values may not be empty.",
+    "- Unknown tags are rejected, so keep the file to the tags in the table below.",
+    "",
+    "## Tag reference",
+    "",
+    "| Tag | Required | Meaning |",
+    "| --- | --- | --- |",
+    "| unit_title | Yes — exactly once, at the top of the file | The title of the study unit, shown on the Home screen. Recommended format: topic; date. |",
+    "| question | Yes — once per block | The question text. |",
+    "| answer | Yes — once per block | The real, correct answer. |",
+    "| medium_fake_answer_1 | Yes — once per block | A wrong answer that is somewhat plausible compared to the real answer. |",
+    "| medium_fake_answer_2 | Yes — once per block | A wrong answer that is somewhat plausible compared to the real answer. |",
+    "| medium_fake_answer_3 | Yes — once per block | A wrong answer that is somewhat plausible compared to the real answer. |",
+    "| hard_fake_answer_1 | Yes — once per block | A wrong answer that is very plausible compared to the real answer. |",
+    "| hard_fake_answer_2 | Yes — once per block | A wrong answer that is very plausible compared to the real answer. |",
+    "| hard_fake_answer_3 | Yes — once per block | A wrong answer that is very plausible compared to the real answer. |",
+    "",
+    "## Plausibility guidance",
+    "",
+    "- Medium fake answers must be **somewhat plausible** compared to the real answer: close enough that the question needs real thought, but clearly wrong once you know the material.",
+    "- Hard fake answers must all be **very plausible** compared to the real answer: easy to mistake for the truth at first glance.",
+    "- Wrong answers for the easy difficulty are generated automatically by the app from the real answers of the other questions in the unit, so the file format has no tags for them.",
+    "- For examples of good medium and hard fake answers, use the arrow at the top of this page to open **How to write questions with AI**.",
+    "",
+    "## Complete example file",
+    "",
+    "```text",
+    "unit_title: Biology Unit 1 Cells; Sep 2026",
+    "",
+    "question: Which organelle produces most of the cell's ATP?",
+    "answer: Mitochondrion",
+    "medium_fake_answer_1: Nucleus",
+    "medium_fake_answer_2: Ribosome",
+    "medium_fake_answer_3: Golgi apparatus",
+    "hard_fake_answer_1: Chloroplast",
+    "hard_fake_answer_2: Mitochondrial matrix",
+    "hard_fake_answer_3: Smooth endoplasmic reticulum",
+    "",
+    "question: What is the basic unit of heredity?",
+    "answer: Gene",
+    "medium_fake_answer_1: Cell",
+    "medium_fake_answer_2: Protein",
+    "medium_fake_answer_3: Enzyme",
+    "hard_fake_answer_1: Allele",
+    "hard_fake_answer_2: Chromosome",
+    "hard_fake_answer_3: Genome",
+    "```",
+    "",
+    "## Quiz and exam progress",
+    "",
+    "- Use the arrow above the question to collapse or expand all study controls. Show seed independently toggles the seed display. The restored-progress message clears after 2.5 seconds.",
+    "- Use Show progress to show or hide the answered count, remaining count, and progress bar. Selecting an answer counts that question once; changing it does not increase the count.",
+    "- In the desktop app, **Save progress** saves a checkpoint to `~/Documents/StudyWebsite/checkpoints`, recording the date and time, the unit, whether it's a quiz or exam, the difficulty, and how many questions you've answered. Saving again during the same attempt updates that checkpoint instead of adding a new one.",
+    "- **Resume saved progress** on the landing or Home screen shows your checkpoints as tiles, newest first. Click a tile to continue where you left off; your question order and answer choices are restored, and you don't need to load the unit file separately. Each tile has a Delete button.",
+    "- When you submit an attempt that has a checkpoint, a popup asks whether to delete it or keep it.",
+    "- **Import from file** on the checkpoints screen opens older JSON progress files. Opened as a plain web page in a browser, Save progress downloads a JSON file and Resume saved progress opens one.",
+    "- Use **Change unit** at the top of the Home screen to go back to the landing page and load a different unit.",
+    "- When you submit a quiz and reach the review page, every question you answered **correctly** is marked **Completed**. If you later change a question's answer in the unit file, it's no longer marked completed, so you'll see it again. Wrong and unanswered questions stay open. Only Quiz mode marks questions; Flashcards, Matching Tiles, and Exam do not.",
+    "- On the Quiz Options screen, turn on **Skip completed questions** to draw the quiz only from questions that aren't completed yet. The number of questions is capped at how many are left.",
+    "- The Home screen shows a Completed tag next to each finished question and how many are done. Press **Reset completed** to clear them all and start fresh.",
+    "- Larger matching boards use more screen width. On smaller screens, scroll the board horizontally to keep tiles readable.",
+    "",
+    "## Saved folder (desktop app)",
+    "",
+    "- In the desktop app, everything is saved under `~/Documents/StudyWebsite`: question banks in `banks/` and completed questions in `progress/`, one file per unit named after its unit title.",
+    "- After loading a unit, press **Save to folder** on the Home screen to copy it into `banks/`. The folders are created automatically the first time.",
+    "- Press **Open saved bank** on the landing screen to see every saved bank as a tile. Click one to study it without dragging the file in again; its completed questions load with it.",
+    "- Each bank tile has **Rename**, which changes the bank's unit title (and its file name, completed questions, and checkpoints to match), and **Delete**, which removes the bank and its completed-question progress. Checkpoints made from a deleted bank are kept.",
+    "- Completed questions are written to disk as soon as you reach the review page, so closing the app never loses them.",
+    "- Opened as a plain web page in a browser, the folder buttons are disabled and completed questions are kept in that browser only.",
+    "",
+    "## Loading your unit file",
+    "",
+    "Open the study website and either drag the file onto the drop zone or press the select file button and pick the file. When the file parses, the Home screen appears with the unit title, the four study modes, and every question with its real answer. When something is wrong with the file, an inline message on the landing screen names the problem."
+  ];
+
+  var AI_DOCS_LINES = [
+    "# How to write questions with AI",
+    "",
+    "An AI assistant can turn your notes, slides, or a textbook chapter into a unit file for you. Paste in your study material along with the two guides below and the Tag reference from the first documentation page, then ask for a unit file with the unit_title written as **topic; date** (for example `unit_title: Cell Biology; Sep 2026`). Read through the result before you study from it; the AI can get facts wrong.",
+    "",
+    "## Guide for writing questions",
+    "",
+    "### Keep questions factual and concise",
+    "",
+    "Each question should ask for one fact, and the answer should be just that fact, with no extra explanation.",
+    "",
+    "- **Q:** What machine is used to make coffee? **A:** A coffee maker.",
+    "",
+    "### Give alternate names and acronyms their own questions",
+    "",
+    "When a term has an alternate name or an acronym, don't put it in parentheses. Split it into two questions so you learn each one on its own.",
+    "",
+    "- **Q:** What organization governs residential communities? **A:** Homeowners Association.",
+    "- **Q:** What is the acronym for the organization that governs residential communities? **A:** HOA.",
+    "",
+    "### Split multi-step processes into one question per step",
+    "",
+    "When the material describes a process, don't pack every step into a single answer. Write a separate question for each step.",
+    "",
+    "- **Q:** What is the first step of making coffee? **A:** Roasting the coffee beans.",
+    "- **Q:** What is the second step of making coffee? **A:** Grinding the roasted coffee beans.",
+    "",
+    "### Go beyond the core concepts",
+    "",
+    "Also write broader questions about the supporting details, examples, and context in the material. That way you end up remembering the whole topic, not just the headline ideas.",
+    "",
+    "## Guide for writing fake answers",
+    "",
+    "Good fake answers look a lot like the real answer. If a fake answer is obviously wrong, it doesn't test anything. Every question needs three medium and three hard fake answers.",
+    "",
+    "### Medium fake answers",
+    "",
+    "A medium fake answer should be easy to rule out for someone who understands the topic, but believable to someone who isn't as familiar with it.",
+    "",
+    "| Question | Real answer | Medium fake answer |",
+    "| --- | --- | --- |",
+    "| What is the powerhouse of the cell? | The mitochondria | The nucleus |",
+    "| What is 100 x 0.1? | 10 | 1000 |",
+    "| What does HOA stand for? | Home Owners Association | House Order Association |",
+    "",
+    "### Hard fake answers",
+    "",
+    "A hard fake answer should match the real answer's structure closely, so you can't pick the right choice by its shape or length. It should be close enough to fool you if you only glance at the choices instead of reading them carefully.",
+    "",
+    "| Question | Real answer | Hard fake answer | Why it works |",
+    "| --- | --- | --- | --- |",
+    "| What is the powerhouse of the cell? | The organelle mitochondria | The organelle chloroplasts | Same wording, and chloroplasts are another real organelle. |",
+    "| What is 100 x 0.1? | 10 | 10% | The right digits, but the question asks for a number, not a percentage. |",
+    "| What does HOA stand for? | Home Owners Association | Home Owl Association | Same structure and nearly the same words, so it's easy to miss at first glance. |",
+    "",
+    "**Tip:** Adding an extra fact to the real answer makes hard fake answers easier to write. \"The mitochondria\" becomes \"The organelle mitochondria\", which gives you room for \"The organelle chloroplasts\"."
+  ];
+
+  var DOCS_PAGES = [
+    { label: "Unit file documentation", lines: DOCS_LINES },
+    { label: "How to write questions with AI", lines: AI_DOCS_LINES }
+  ];
+  var docsPage = 0;
+
+  function docsMarkdown() {
+    return DOCS_PAGES.map(function (page) { return page.lines.join("\n"); }).join("\n\n---\n\n");
+  }
+
+  function renderDocsPage() {
+    var content = document.getElementById("docs-content");
+    if (content) content.innerHTML = renderMarkdown(DOCS_PAGES[docsPage].lines.join("\n"));
+    var label = document.getElementById("docs-nav-label");
+    if (label) label.textContent = DOCS_PAGES[docsPage].label + " (" + (docsPage + 1) + " of " + DOCS_PAGES.length + ")";
+    var prev = document.getElementById("docs-prev-btn");
+    var next = document.getElementById("docs-next-btn");
+    if (prev) prev.disabled = docsPage <= 0;
+    if (next) next.disabled = docsPage >= DOCS_PAGES.length - 1;
+  }
+
+  function goToDocsPage(page) {
+    docsPage = Math.min(Math.max(page, 0), DOCS_PAGES.length - 1);
+    renderDocsPage();
+    var screen = document.getElementById("screen-docs");
+    if (screen && screen.scrollIntoView) window.scrollTo(0, 0);
+  }
+
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function renderInline(text) {
+    var html = escapeHtml(text);
+    html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+    return html;
+  }
+
+  /* Tiny markdown renderer for the documentation content above
+     (headings, bullet lists, pipe tables, fenced code, bold, code spans). */
+  function renderMarkdown(md) {
+    var lines = md.split("\n");
+    var html = [];
+    var paragraph = [];
+    var listItems = [];
+    var tableRows = [];
+    var codeLines = null;
+
+    function flushParagraph() {
+      if (paragraph.length) {
+        html.push("<p>" + renderInline(paragraph.join(" ")) + "</p>");
+        paragraph = [];
+      }
+    }
+    function flushList() {
+      if (listItems.length) {
+        var items = "";
+        for (var i = 0; i < listItems.length; i++) {
+          items += "<li>" + renderInline(listItems[i]) + "</li>";
+        }
+        html.push("<ul>" + items + "</ul>");
+        listItems = [];
+      }
+    }
+    function flushTable() {
+      if (!tableRows.length) return;
+      var rows = [];
+      for (var i = 0; i < tableRows.length; i++) {
+        var cells = tableRows[i].split("|").slice(1, -1);
+        for (var c = 0; c < cells.length; c++) cells[c] = cells[c].trim();
+        rows.push(cells);
+      }
+      var separatorIndex = -1;
+      for (var r = 1; r < rows.length; r++) {
+        var allDashes = rows[r].length > 0;
+        for (var d = 0; d < rows[r].length; d++) {
+          if (!/^:?-{3,}:?$/.test(rows[r][d])) allDashes = false;
+        }
+        if (allDashes) { separatorIndex = r; break; }
+      }
+      var table = "<table>";
+      if (separatorIndex > 0) {
+        table += "<thead><tr>";
+        for (var h = 0; h < rows[0].length; h++) {
+          table += "<th>" + renderInline(rows[0][h]) + "</th>";
+        }
+        table += "</tr></thead><tbody>";
+        for (var b = separatorIndex + 1; b < rows.length; b++) {
+          table += "<tr>";
+          for (var bb = 0; bb < rows[b].length; bb++) {
+            table += "<td>" + renderInline(rows[b][bb]) + "</td>";
+          }
+          table += "</tr>";
+        }
+        table += "</tbody>";
+      } else {
+        table += "<tbody>";
+        for (var t = 0; t < rows.length; t++) {
+          table += "<tr>";
+          for (var tt = 0; tt < rows[t].length; tt++) {
+            table += "<td>" + renderInline(rows[t][tt]) + "</td>";
+          }
+          table += "</tr>";
+        }
+        table += "</tbody>";
+      }
+      table += "</table>";
+      html.push(table);
+      tableRows = [];
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (codeLines !== null) {
+        if (/^```/.test(line.trim())) {
+          html.push("<pre>" + escapeHtml(codeLines.join("\n")) + "</pre>");
+          codeLines = null;
+        } else {
+          codeLines.push(line);
+        }
+        continue;
+      }
+      var trimmed = line.trim();
+      if (trimmed === "") {
+        flushParagraph();
+        flushList();
+        flushTable();
+        continue;
+      }
+      if (/^```/.test(trimmed)) {
+        flushParagraph();
+        flushList();
+        flushTable();
+        codeLines = [];
+        continue;
+      }
+      if (trimmed.charAt(0) === "|") {
+        flushParagraph();
+        flushList();
+        tableRows.push(trimmed);
+        continue;
+      }
+      flushTable();
+      if (/^###\s/.test(trimmed)) { flushParagraph(); flushList(); html.push("<h3>" + renderInline(trimmed.slice(4)) + "</h3>"); continue; }
+      if (/^##\s/.test(trimmed)) { flushParagraph(); flushList(); html.push("<h2>" + renderInline(trimmed.slice(3)) + "</h2>"); continue; }
+      if (/^#\s/.test(trimmed)) { flushParagraph(); flushList(); html.push("<h1>" + renderInline(trimmed.slice(2)) + "</h1>"); continue; }
+      if (/^-\s/.test(trimmed)) { flushParagraph(); listItems.push(trimmed.slice(2)); continue; }
+      flushList();
+      paragraph.push(trimmed);
+    }
+    flushParagraph();
+    flushList();
+    flushTable();
+    if (codeLines !== null) {
+      html.push("<pre>" + escapeHtml(codeLines.join("\n")) + "</pre>");
+    }
+    return html.join("\n");
+  }
+
+  /* =====================================================================
+     2. APPLICATION STATE
+     Live object exported as window.StudyApp.state (shared by reference).
+     ===================================================================== */
+
+  var state = {
+    screen: "landing",
+    theme: "light",
+    unit: null,
+    unitText: "",
+    showProgress: true,
+    showSeed: true,
+    sessionExpanded: true,
+    flashcards: { order: [], index: 0, flipped: false },
+    /* Matching mode sub-state (flow logic owned by C2). */
+    match: {
+      size: 0,
+      seed: null,
+      pairs: [],
+      tiles: [],
+      selectedTile: null,
+      matchedPairs: [],
+      locked: false,
+      done: false
+    },
+    /* Quiz / Exam sub-state (flow logic owned by C2). */
+    quiz: {
+      mode: "quiz",
+      seed: null,
+      order: [],
+      tfFlags: [],
+      choices: [],
+      answers: [],
+      index: 0,
+      submitted: false
+    }
+  };
+
+  /* =====================================================================
+     3. SCREEN ROUTER
+     showScreen(name) toggles the .active class on the ten screen
+     sections and mirrors the name into state.screen. Per-screen hooks
+     run whenever that screen is shown (register more below or in C2's
+     controllers, e.g. screenShowHooks["match-board"] = fn).
+     ===================================================================== */
+
+  var SCREEN_IDS = {
+    "landing": "screen-landing",
+    "docs": "screen-docs",
+    "home": "screen-home",
+    "flashcard": "screen-flashcard",
+    "match-size": "screen-match-size",
+    "match-board": "screen-match-board",
+    "quiz-options": "screen-quiz-options",
+    "quiz": "screen-quiz",
+    "quiz-review": "screen-quiz-review",
+    "exam-options": "screen-exam-options",
+    "checkpoints": "screen-checkpoints",
+    "banks": "screen-banks"
+  };
+
+  var screenShowHooks = {};
+
+  function showScreen(name) {
+    var id = SCREEN_IDS[name] || String(name);
+    var target = document.getElementById(id);
+    if (!target) return;
+    var sections = document.querySelectorAll("section.screen");
+    for (var i = 0; i < sections.length; i++) {
+      sections[i].classList.remove("active");
+    }
+    target.classList.add("active");
+    state.screen = name;
+    var hook = screenShowHooks[name];
+    if (typeof hook === "function") hook();
+  }
+
+  /* Quiz Options: default the count control to the unit total each time
+     the screen is shown (max is capped at the total). */
+  screenShowHooks["quiz-options"] = function () {
+    var errorEl = document.getElementById("quiz-options-error");
+    if (errorEl) errorEl.textContent = "";
+    updateQuizCountLimit(true);
+  };
+
+  /* =====================================================================
+     3.5 THEME CONTROLLER
+     The theme is session-only. defaultTheme() reads the OS color-scheme
+     preference at CALL time, fully guarded: no matchMedia, a throwing
+     matchMedia, or a query that does not match all mean "light".
+     setTheme()/toggleTheme() switch the data-theme attribute on <html>,
+     mirror it into state.theme, and relabel the global toggle button
+     (which always names the theme it will switch TO). Nothing is ever
+     written to any store, so a fresh load always starts from the
+     default again.
+     ===================================================================== */
+
+  function defaultTheme() {
+    try {
+      var mm = window.matchMedia;
+      if (typeof mm !== "function") return "light";
+      var query = mm.call(window, "(prefers-color-scheme: dark)");
+      if (query && query.matches === true) return "dark";
+    } catch (err) {
+      return "light";
+    }
+    return "light";
+  }
+
+  function setTheme(theme) {
+    if (theme !== "light" && theme !== "dark") return;
+    state.theme = theme;
+    document.documentElement.setAttribute("data-theme", theme);
+    var toggle = document.getElementById("theme-toggle-btn");
+    if (toggle) {
+      if (theme === "dark") {
+        toggle.textContent = "\u2600 Light mode";
+        toggle.setAttribute("aria-label", "Switch to light mode");
+      } else {
+        toggle.textContent = "\u263E Dark mode";
+        toggle.setAttribute("aria-label", "Switch to dark mode");
+      }
+    }
+  }
+
+  function toggleTheme() {
+    setTheme(state.theme === "dark" ? "light" : "dark");
+  }
+
+  /* =====================================================================
+     4. SCREEN CONTROLLERS
+     Landing, Documentation, Home, and Flashcard are fully wired here.
+     startMatch / shuffleBoard / startQuiz / startExam are exported stubs;
+     C2 implements those flows on top of this foundation.
+     ===================================================================== */
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  /* ------------------------ Saved folder (desktop) ------------------------
+     In the Tauri desktop app, window.__TAURI__ exposes invoke(), which
+     calls the Rust commands in src-tauri/src/main.rs. Those read and
+     write ~/Documents/StudyWebsite/{banks,progress}. Opened as a plain
+     web page there is no __TAURI__, so folder buttons are disabled and
+     completed questions fall back to this browser's localStorage. */
+
+  var tauriInvoke = (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) || null;
+  var hasDesktop = typeof tauriInvoke === "function";
+  var DESKTOP_ONLY_NOTE = "Saving to a folder needs the Study Website desktop app.";
+
+  function desktopCall(command, args) {
+    if (!hasDesktop) return Promise.reject(new Error(DESKTOP_ONLY_NOTE));
+    return Promise.resolve(tauriInvoke(command, args || {})).catch(function (err) {
+      throw new Error(typeof err === "string" ? err : (err && err.message) || "Something went wrong.");
+    });
+  }
+
+  function setFolderStatus(message, isError) {
+    if (!message) return;
+    if (isError) notifyError(message); else notify(message);
+  }
+
+  /* The "Saved to" box on Home: shown once the open bank is in the folder. */
+  state.bankPath = "";
+  function renderBankPath() {
+    var box = byId("bank-path-box");
+    if (!box) return;
+    box.classList.toggle("hidden", !state.bankPath);
+    byId("bank-path-text").textContent = state.bankPath;
+  }
+
+  var dataFolderPath = "";
+  function bankPathFor(fileName) {
+    return dataFolderPath ? dataFolderPath + "/banks/" + fileName : "";
+  }
+
+  function saveBankToFolder() {
+    if (!state.unit || !state.unitText) return;
+    desktopCall("save_bank", { name: state.unit.unitTitle, text: state.unitText })
+      .then(function (path) {
+        state.bankPath = path;
+        renderBankPath();
+        notify("Question bank saved.");
+      })
+      .catch(function (err) { setFolderStatus(err.message, true); });
+  }
+
+  /* ---------------------------- Question banks ----------------------------
+     Desktop only: tiles for every bank in ~/Documents/StudyWebsite/banks,
+     sorted alphabetically, with Rename and Delete on each. */
+
+  var pendingBankRename = null;
+  var pendingBankDelete = null;
+
+  function openBanks() {
+    showScreen("banks");
+    renderBanks();
+  }
+
+  function describeBank(name, text, progressText, modified) {
+    var info = { name: name, ok: false, title: name.replace(/\.txt$/i, ""), modified: modified };
+    try {
+      var unit = parseUnitFile(text);
+      var done = resolveCompleted(unit.questions, parseCompletedJson(progressText));
+      info.ok = true;
+      info.title = unit.unitTitle;
+      info.total = unit.questions.length;
+      info.completed = unit.questions.filter(function (q) { return done[completedKey(q)] === true; }).length;
+    } catch (err) {
+      info.error = err && err.message ? err.message : "This file couldn't be read.";
+    }
+    return info;
+  }
+
+  function renderBanks() {
+    var grid = byId("bank-grid");
+    var errorEl = byId("banks-error");
+    if (!grid) return;
+    if (errorEl) errorEl.textContent = "";
+    grid.textContent = "";
+    desktopCall("list_bank_details")
+      .then(function (entries) {
+        grid.textContent = "";
+        var items = entries.map(function (e) { return describeBank(e[0], e[1], e[2], e[3]); });
+        items.sort(function (x, y) { return x.title.toLowerCase().localeCompare(y.title.toLowerCase()); });
+        if (!items.length) {
+          var empty = document.createElement("p");
+          empty.className = "checkpoints-empty";
+          empty.textContent = "No saved banks yet. Load a unit file, then press Save to folder on the Home screen.";
+          grid.appendChild(empty);
+          return;
+        }
+        items.forEach(function (item) { grid.appendChild(buildBankTile(item)); });
+      })
+      .catch(function (err) { notifyError(err.message); });
+  }
+
+  function makeTileButton(label, ariaLabel, onClick) {
+    var button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.setAttribute("aria-label", ariaLabel);
+    button.addEventListener("click", function (event) {
+      event.stopPropagation();
+      onClick();
+    });
+    return button;
+  }
+
+  function buildBankTile(item) {
+    var tile = document.createElement("div");
+    tile.className = "checkpoint-tile" + (item.ok ? "" : " broken");
+    var body = document.createElement("div");
+    body.className = "tile-body";
+    var title = document.createElement("p");
+    title.className = "checkpoint-unit";
+    title.textContent = item.title;
+    body.appendChild(title);
+    var meta = document.createElement("p");
+    meta.className = "checkpoint-meta";
+    meta.textContent = item.ok
+      ? item.total + (item.total === 1 ? " question" : " questions") + " · " + item.completed + " completed"
+      : item.error;
+    body.appendChild(meta);
+    if (item.modified) {
+      var when = document.createElement("p");
+      when.className = "checkpoint-meta";
+      when.textContent = "Saved " + formatSavedAt(new Date(item.modified).toISOString());
+      body.appendChild(when);
+    }
+    tile.appendChild(body);
+
+    var actions = document.createElement("div");
+    actions.className = "tile-actions";
+    if (item.ok) {
+      actions.appendChild(makeTileButton("Rename", "Rename " + item.title, function () { showBankRename(item); }));
+    }
+    actions.appendChild(makeTileButton("Delete", "Delete " + item.title, function () {
+      pendingBankDelete = item;
+      byId("bank-delete-hint").textContent = item.title +
+        ". Its completed-question progress is deleted too. Checkpoints made from it are kept.";
+      byId("bank-delete-modal").classList.remove("hidden");
+    }));
+    tile.appendChild(actions);
+
+    if (item.ok) {
+      tile.tabIndex = 0;
+      tile.setAttribute("role", "button");
+      tile.setAttribute("aria-label", "Open " + item.title);
+      tile.addEventListener("click", function () { openSavedBank(item.name); });
+      tile.addEventListener("keydown", function (event) {
+        if (event.target === tile && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          openSavedBank(item.name);
+        }
+      });
+    }
+    return tile;
+  }
+
+  function openSavedBank(name) {
+    desktopCall("read_bank", { name: name })
+      .then(function (text) {
+        var result = loadUnitText(text);
+        if (result.ok) {
+          state.bankPath = bankPathFor(name);
+          renderBankPath();
+        }
+      })
+      .catch(function (err) { notifyError(err.message); });
+  }
+
+  function showBankRename(item) {
+    pendingBankRename = item;
+    var input = byId("bank-rename-input");
+    byId("bank-rename-error").textContent = "";
+    input.value = item.title;
+    byId("bank-rename-modal").classList.remove("hidden");
+    input.focus();
+    input.select();
+  }
+
+  function hideBankRename() {
+    pendingBankRename = null;
+    byId("bank-rename-modal").classList.add("hidden");
+  }
+
+  function saveBankRename() {
+    var item = pendingBankRename;
+    if (!item) return;
+    var input = byId("bank-rename-input");
+    var errorEl = byId("bank-rename-error");
+    var newTitle = input.value.trim();
+    if (!newTitle) { notifyError("The name can't be empty."); return; }
+    if (newTitle === item.title) { hideBankRename(); return; }
+    desktopCall("rename_bank", { name: item.name, newTitle: newTitle })
+      .then(function (result) {
+        hideBankRename();
+        notify("Renamed to " + newTitle + ".");
+        if (result[2]) notifyError(result[2]);
+        // If this bank is the one currently open, follow the rename.
+        if (state.unit && state.unit.unitTitle === item.title) {
+          try {
+            state.unit = parseUnitFile(result[1]);
+            state.unitText = result[1];
+            state.completedFor = state.unit.unitTitle;
+            if (state.bankPath) state.bankPath = bankPathFor(result[0]);
+            renderHome(state.unit);
+            renderBankPath();
+          } catch (err) { /* leave the open unit as it was */ }
+        }
+        renderBanks();
+      })
+      .catch(function (err) { notifyError(err.message); });
+  }
+
+  function confirmBankDelete() {
+    var item = pendingBankDelete;
+    pendingBankDelete = null;
+    byId("bank-delete-modal").classList.add("hidden");
+    if (!item) return;
+    desktopCall("delete_bank", { name: item.name })
+      .then(function () {
+        if (state.unit && state.unit.unitTitle === item.title) { state.bankPath = ""; renderBankPath(); }
+        notify(item.title + " deleted.");
+        renderBanks();
+      })
+      .catch(function (err) { notifyError(err.message); });
+  }
+
+  /* ------------------------- Completed questions -------------------------
+     A question is completed when it was answered correctly in Quiz mode
+     and the quiz reached the review page. Completed questions are keyed
+     by their question text (not position), so editing or reordering the
+     bank later doesn't mark the wrong ones. One progress file per unit,
+     named after the unit title. */
+
+  /* Completed questions are keyed by question text plus answer, so two
+     identical prompts with different answers are tracked separately and
+     fixing a question's answer clears its completed status. Files saved
+     before v1.3 list question text only; those entries still count for
+     every question with that text, and are rewritten with the new keys on
+     the next save. */
+  state.completed = {};          // completedKey(question) -> true
+  state.completedFor = null;     // unit title the set belongs to
+  state.completedReady = Promise.resolve();
+  state.completedLoadFailed = false;
+  var completedLoadToken = 0;
+  var LOCAL_PREFIX = "study-website-completed:";
+
+  function completedKey(question) {
+    return question.question + "\n" + question.answer;
+  }
+
+  function readCompletedStore(title) {
+    if (hasDesktop) return desktopCall("read_progress", { name: title });
+    try { return Promise.resolve(window.localStorage.getItem(LOCAL_PREFIX + title) || ""); }
+    catch (err) { return Promise.resolve(""); }
+  }
+
+  function writeCompletedStore(title, json) {
+    if (hasDesktop) return desktopCall("write_progress", { name: title, json: json });
+    try { window.localStorage.setItem(LOCAL_PREFIX + title, json); } catch (err) { /* session only */ }
+    return Promise.resolve();
+  }
+
+  /* The raw entries in a progress file: new-style keys and/or legacy
+     question-text entries. */
+  function parseCompletedJson(text) {
+    var result = {};
+    if (!text) return result;
+    try {
+      var data = JSON.parse(text);
+      if (data && Array.isArray(data.completed)) {
+        data.completed.forEach(function (q) { if (typeof q === "string") result[q] = true; });
+      }
+    } catch (err) { /* unreadable file: start fresh */ }
+    return result;
+  }
+
+  /* Raw entries -> { completedKey: true } for the questions in this unit. */
+  function resolveCompleted(questions, raw) {
+    var result = {};
+    questions.forEach(function (q) {
+      if (raw[completedKey(q)] === true || raw[q.question] === true) result[completedKey(q)] = true;
+    });
+    return result;
+  }
+
+  function isCompleted(question) {
+    return state.completed[completedKey(question)] === true;
+  }
+
+  function completedCount() {
+    if (!state.unit) return 0;
+    return state.unit.questions.filter(isCompleted).length;
+  }
+
+  /* Loads in the background. Anything marked before the load finishes is
+     merged with what's on disk (not overwritten by it), and saves wait for
+     the load so they never replace older completions with a partial list. */
+  function loadCompletedForUnit() {
+    if (!state.unit) return;
+    var unit = state.unit;
+    var title = unit.unitTitle;
+    var token = ++completedLoadToken;
+    state.completed = {};
+    state.completedFor = title;
+    state.completedLoadFailed = false;
+    renderCompletedMarks();
+    state.completedReady = readCompletedStore(title)
+      .then(function (text) {
+        if (token !== completedLoadToken) return; // another unit loaded meanwhile
+        var loaded = resolveCompleted(unit.questions, parseCompletedJson(text));
+        Object.keys(state.completed).forEach(function (k) { loaded[k] = true; });
+        state.completed = loaded;
+        renderCompletedMarks();
+      })
+      .catch(function (err) {
+        if (token !== completedLoadToken) return;
+        state.completedLoadFailed = true;
+        notifyError("Completed questions couldn't be loaded: " + err.message);
+      });
+  }
+
+  function persistCompleted() {
+    if (!state.unit) return Promise.resolve();
+    var unit = state.unit;
+    var token = completedLoadToken;
+    return state.completedReady.then(function () {
+      if (token !== completedLoadToken) return; // a different unit is open now
+      if (state.completedLoadFailed) {
+        notifyError("Completed questions weren't saved, because the saved list couldn't be read. Reopen the bank and try again.");
+        return;
+      }
+      var list = unit.questions.filter(isCompleted).map(completedKey);
+      var json = JSON.stringify({
+        format: "study-website-completed", version: 2,
+        unitTitle: unit.unitTitle, updatedAt: new Date().toISOString(), completed: list
+      }, null, 2);
+      return writeCompletedStore(unit.unitTitle, json).catch(function (err) { notifyError(err.message); });
+    });
+  }
+
+  /* Called when a quiz reaches the review page. Returns how many
+     questions were newly marked. */
+  function markCorrectAsCompleted() {
+    var q = state.quiz;
+    if (q.mode !== "quiz" || !state.unit) return 0;
+    var added = 0;
+    for (var i = 0; i < q.order.length; i++) {
+      var data = q.choices[i];
+      var correctSlot = q.tfFlags[i] ? (data.isReal ? "true" : "false") : data.correctSlot;
+      if (q.answers[i] === correctSlot && !isCompleted(q.order[i])) {
+        state.completed[completedKey(q.order[i])] = true;
+        added++;
+      }
+    }
+    if (added) {
+      persistCompleted();
+      renderCompletedMarks();
+    }
+    return added;
+  }
+
+  function resetCompleted() {
+    var token = completedLoadToken;
+    // Wait for the load so it can't bring the old list back afterwards.
+    state.completedReady.then(function () {
+      if (token !== completedLoadToken) return;
+      state.completed = {};
+      renderCompletedMarks();
+      return persistCompleted().then(function () { notify("Completed questions reset."); });
+    });
+  }
+
+  function renderCompletedMarks() {
+    var summary = byId("completed-summary");
+    var total = state.unit ? state.unit.questions.length : 0;
+    var done = completedCount();
+    if (summary) summary.textContent = state.unit ? done + " of " + total + " questions completed" : "";
+    var bar = byId("completed-bar");
+    if (bar) bar.style.width = total ? (100 * done / total) + "%" : "0%";
+    var reset = byId("reset-completed-btn");
+    if (reset) reset.disabled = done === 0;
+    var pairs = document.querySelectorAll("#qa-list .qa-pair");
+    for (var i = 0; i < pairs.length && state.unit; i++) {
+      var tag = pairs[i].querySelector(".completed-tag");
+      var question = state.unit.questions[i];
+      if (question && isCompleted(question)) {
+        if (!tag) {
+          tag = document.createElement("span");
+          tag.className = "completed-tag";
+          tag.textContent = "Completed";
+          pairs[i].querySelector(".qa-q").appendChild(tag);
+        }
+      } else if (tag) {
+        tag.remove();
+      }
+    }
+    if (state.screen === "quiz-options") updateQuizCountLimit();
+  }
+
+  /* Quiz Options: the count's max follows the pool the quiz will draw
+     from (all questions, or only the ones not yet completed). */
+  function quizPool() {
+    if (!state.unit) return [];
+    var skip = byId("skip-completed");
+    if (skip && skip.checked) {
+      return state.unit.questions.filter(function (q) { return !isCompleted(q); });
+    }
+    return state.unit.questions;
+  }
+
+  function updateQuizCountLimit(resetValue) {
+    var input = byId("quiz-count");
+    var hint = byId("skip-completed-hint");
+    if (!state.unit) return;
+    var total = state.unit.questions.length;
+    var remaining = total - completedCount();
+    if (hint) hint.textContent = remaining + " of " + total + " questions not completed yet.";
+    if (!input) return;
+    var poolSize = quizPool().length;
+    var max = Math.max(poolSize, 1);
+    input.max = String(max);
+    var current = parseInt(input.value, 10);
+    if (resetValue || !isFinite(current) || current > max) input.value = String(max);
+  }
+
+  /* ---------------------------- Popups ----------------------------
+     notify() shows a message in the bottom-left corner with a blue bar
+     that shrinks to the left; when it runs out the popup goes away.
+     Errors use red and stay twice as long. */
+
+  var TOAST_MS = 4000;
+  var ERROR_TOAST_MS = 8000;
+
+  function showToast(message, isError) {
+    var stack = byId("toast-stack");
+    if (!stack || !message) return;
+    var toast = document.createElement("div");
+    toast.className = "toast" + (isError ? " error" : "");
+    toast.setAttribute("role", isError ? "alert" : "status");
+    var text = document.createElement("div");
+    text.textContent = message;
+    var bar = document.createElement("div");
+    bar.className = "toast-bar";
+    if (isError) bar.style.backgroundColor = "var(--danger-strong)";
+    var ms = isError ? ERROR_TOAST_MS : TOAST_MS;
+    bar.style.animationDuration = ms + "ms";
+    toast.appendChild(text);
+    toast.appendChild(bar);
+    stack.appendChild(toast);
+    setTimeout(function () {
+      toast.classList.add("leaving");
+      setTimeout(function () { toast.remove(); }, 220);
+    }, ms);
+  }
+
+  function notify(message) { showToast(message, false); }
+  function notifyError(message) { showToast(message, true); }
+
+  /* ---------------------------- Landing ---------------------------- */
+
+  function setLandingError(message) {
+    if (message) notifyError(message);
+  }
+
+  function loadUnitText(text) {
+    var unit;
+    try {
+      unit = parseUnitFile(text);
+    } catch (err) {
+      var message = err && err.message ? err.message : "The unit file could not be read.";
+      setLandingError(message);
+      return { ok: false, error: message };
+    }
+    state.unit = unit;
+    state.unitText = text;
+    state.bankPath = "";
+    renderBankPath();
+    renderHome(unit);
+    loadCompletedForUnit();
+    showScreen("home");
+    return { ok: true };
+  }
+
+  /* One shared path for the file input and drag-and-drop. */
+  function readUnitFile(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      loadUnitText(String(reader.result));
+    };
+    reader.onerror = function () {
+      setLandingError("The file could not be read.");
+    };
+    reader.readAsText(file);
+  }
+
+  /* --------------------------- Drag and drop ---------------------------
+     In the desktop app, file drops are handled natively: the window
+     reports the dropped file's path, and Rust reads it (WebKitGTK doesn't
+     reliably pass dropped files to the page). In a browser, the drop
+     zone's own drop event is used instead. Either way, a drop that can't
+     be used shows an error instead of silently doing nothing. */
+
+  function setDropHighlight(on) {
+    var zone = byId("drop-zone");
+    if (zone) zone.classList.toggle("drag-over", !!on && state.screen === "landing");
+  }
+
+  function handleDroppedPaths(paths) {
+    if (state.screen !== "landing") {
+      notifyError("To load a unit file, go back to the start screen and drop it there.");
+      return;
+    }
+    if (!paths || !paths.length) {
+      notifyError("That wasn't a file. Drag a unit file (.txt) from your file manager.");
+      return;
+    }
+    if (paths.length > 1) notify("Several files were dropped; loading the first one.");
+    desktopCall("read_dropped_file", { path: paths[0] })
+      .then(function (text) { loadUnitText(text); })
+      .catch(function (err) { notifyError(err.message); });
+  }
+
+  function setupNativeDrop() {
+    var api = window.__TAURI__ || {};
+    var view = null;
+    try {
+      if (api.webview && api.webview.getCurrentWebview) view = api.webview.getCurrentWebview();
+      else if (api.webviewWindow && api.webviewWindow.getCurrentWebviewWindow) view = api.webviewWindow.getCurrentWebviewWindow();
+    } catch (err) { view = null; }
+    if (!view || typeof view.onDragDropEvent !== "function") return false;
+    Promise.resolve(view.onDragDropEvent(function (event) {
+      var p = event && event.payload ? event.payload : {};
+      if (p.type === "enter" || p.type === "over") setDropHighlight(true);
+      else if (p.type === "leave") setDropHighlight(false);
+      else if (p.type === "drop") {
+        setDropHighlight(false);
+        handleDroppedPaths(p.paths);
+      }
+    })).catch(function (err) {
+      notifyError("Drag and drop isn't available (" + (err && err.message ? err.message : err) + "). Use Select file instead.");
+    });
+    return true;
+  }
+
+  /* -------------------------- Documentation -------------------------- */
+
+  function downloadDocs() {
+    if (hasDesktop) {
+      desktopCall("save_download", { name: "study-website-documentation.md", text: docsMarkdown() })
+        .then(function (path) { notify("Documentation saved to " + path); })
+        .catch(function (err) { notifyError(err.message); });
+      return;
+    }
+    var blob = new Blob([docsMarkdown()], { type: "text/markdown" });
+    var url = URL.createObjectURL(blob);
+    var anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "study-website-documentation.md";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  }
+
+  /* ------------------------------ Home ------------------------------ */
+
+  function renderHome(unit) {
+    var title = byId("unit-title");
+    if (title) title.textContent = unit.unitTitle;
+    var list = byId("qa-list");
+    if (!list) return;
+    list.textContent = "";
+    for (var i = 0; i < unit.questions.length; i++) {
+      var question = unit.questions[i];
+      var pair = document.createElement("div");
+      pair.className = "qa-pair";
+      var q = document.createElement("div");
+      q.className = "qa-q";
+      q.textContent = question.question;
+      var a = document.createElement("div");
+      a.className = "qa-a";
+      a.textContent = question.answer;
+      pair.appendChild(q);
+      pair.appendChild(a);
+      list.appendChild(pair);
+    }
+    renderCompletedMarks();
+  }
+
+  /* ---------------------------- Flashcard ---------------------------- */
+
+  function startFlashcards(seed) {
+    if (!state.unit || state.unit.questions.length === 0) return;
+    var effectiveSeed = typeof seed === "number" ? seed : Date.now();
+    state.flashcards.order = seededShuffle(state.unit.questions, effectiveSeed);
+    state.flashcards.index = 0;
+    state.flashcards.flipped = false;
+    renderFlashcard();
+    showScreen("flashcard");
+  }
+
+  function renderFlashcard() {
+    var f = state.flashcards;
+    var card = f.order[f.index];
+    var questionEl = byId("card-question");
+    var answerEl = byId("card-answer");
+    if (questionEl) questionEl.textContent = card ? card.question : "";
+    if (answerEl) answerEl.textContent = card ? card.answer : "";
+    if (questionEl) questionEl.classList.toggle("hidden", f.flipped);
+    if (answerEl) answerEl.classList.toggle("hidden", !f.flipped);
+    var prev = byId("prev-card-btn");
+    var next = byId("next-card-btn");
+    if (prev) prev.disabled = f.index <= 0;
+    if (next) next.disabled = f.index >= f.order.length - 1;
+  }
+
+  function flipFlashcard() {
+    state.flashcards.flipped = !state.flashcards.flipped;
+    renderFlashcard();
+  }
+
+  function goToPrevCard() {
+    var f = state.flashcards;
+    if (f.index > 0) {
+      f.index--;
+      f.flipped = false;
+      renderFlashcard();
+    }
+  }
+
+  function goToNextCard() {
+    var f = state.flashcards;
+    if (f.index < f.order.length - 1) {
+      f.index++;
+      f.flipped = false;
+      renderFlashcard();
+    }
+  }
+
+  /* ------------ Matching / Quiz / Exam flows (C2) ------------
+     startMatch / shuffleBoard / startQuiz / startExam plus their
+     renderers and click handlers. The exported names and the
+     state.match / state.quiz shapes are part of the contract. */
+
+  var RED_FLASH_MS = 500;
+  var MATCH_PAIRS_NEEDED = { 4: 8, 6: 18, 8: 32 };
+  /* Monotonic token: rebuilding the board or starting a new red flash
+     invalidates every pending flash timeout, so a stale callback can
+     never clear the lock of a freshly built board. */
+  var matchFlashSeq = 0;
+  /* Review pagination index (the review always starts at page 0). */
+  var reviewIndex = 0;
+
+  function freshSeed(seed) {
+    return typeof seed === "number" ? seed : Date.now();
+  }
+
+  /* ---------------------------- Matching ---------------------------- */
+
+  /* Selects the pairs, builds the tiles, resets state.match, and
+     renders the board (without changing screens). */
+  function buildMatchBoard(size, seed) {
+    var unit = state.unit;
+    if (!unit || unit.questions.length === 0) return;
+    matchFlashSeq++;
+    var pairsNeeded = MATCH_PAIRS_NEEDED[size] || Math.floor((size * size) / 2);
+    var pairs = selectFirstN(unit.questions, pairsNeeded, seed);
+    var tiles = buildBoardTiles(pairs, seed);
+    state.match.size = size;
+    state.match.seed = seed;
+    state.match.pairs = pairs;
+    state.match.tiles = tiles;
+    state.match.selectedTile = null;
+    state.match.matchedPairs = [];
+    state.match.locked = false;
+    state.match.done = false;
+    renderMatchBoard();
+  }
+
+  function renderMatchBoard() {
+    var m = state.match;
+    byId("screen-match-board").dataset.size = String(m.size);
+    var label = byId("match-size-label");
+    if (label) label.textContent = m.size + "\u00D7" + m.size;
+    var grid = byId("match-grid");
+    if (!grid) return;
+    grid.textContent = "";
+    /* Column-major fill: rows are fixed by the board size, the tiles
+       flow top to bottom then into the next column. A partial board
+       simply renders fewer columns. */
+    var columns = Math.max(1, Math.ceil(m.tiles.length / m.size));
+    grid.style.setProperty("--board-min-width", (columns * 140 + (columns - 1) * 12) + "px");
+    grid.style.gridAutoFlow = "column";
+    grid.style.gridTemplateRows = "repeat(" + m.size + ", 1fr)";
+    grid.style.gridTemplateColumns = "repeat(" + columns + ", minmax(0, 1fr))";
+    grid.style.gridAutoColumns = "1fr";
+    for (var i = 0; i < m.tiles.length; i++) {
+      var tile = m.tiles[i];
+      var el = document.createElement("button");
+      el.type = "button";
+      el.className = "tile";
+      el.dataset.pairId = String(tile.pairId);
+      el.dataset.kind = tile.kind;
+      el.textContent = tile.text;
+      grid.appendChild(el);
+    }
+    var complete = byId("board-complete");
+    if (complete) complete.classList.add("hidden");
+  }
+
+  function startMatch(size, seed) {
+    if (!state.unit || state.unit.questions.length === 0) return;
+    buildMatchBoard(size, freshSeed(seed));
+    showScreen("match-board");
+  }
+
+  function shuffleBoard(seed) {
+    if (!state.unit || state.unit.questions.length === 0) return;
+    var size = state.match.size || 4;
+    buildMatchBoard(size, freshSeed(seed));
+  }
+
+  /* Tile click logic: select, deselect, match a correct pair (both
+     tiles stay in the DOM but become invisible), or flash a wrong
+     pair red and lock the board until the flash clears. */
+  /* A question tile matches its own answer tile, or any answer tile with
+     the same text (two questions can share an answer, and the tiles are
+     then indistinguishable). */
+  function tilesMatch(a, b) {
+    if (String(a.dataset.pairId) === String(b.dataset.pairId)) return true;
+    var questionTile = a.dataset.kind === "question" ? a : b;
+    var answerTile = questionTile === a ? b : a;
+    var pair = null;
+    for (var i = 0; i < state.match.pairs.length; i++) {
+      if (String(state.match.pairs[i].id) === String(questionTile.dataset.pairId)) pair = state.match.pairs[i];
+    }
+    return !!pair && normalizeAnswer(pair.answer) === normalizeAnswer(answerTile.textContent);
+  }
+
+  function onMatchGridClick(event) {
+    var m = state.match;
+    if (m.locked) return;
+    var tile = event.target && event.target.closest ? event.target.closest(".tile") : null;
+    if (!tile) return;
+    if (tile.classList.contains("matched")) return;
+    if (!m.selectedTile) {
+      tile.classList.add("selected");
+      m.selectedTile = tile;
+      return;
+    }
+    if (m.selectedTile === tile) {
+      tile.classList.remove("selected");
+      m.selectedTile = null;
+      return;
+    }
+    var first = m.selectedTile;
+    var second = tile;
+    m.selectedTile = null;
+    if (first.dataset.kind !== second.dataset.kind && tilesMatch(first, second)) {
+      first.classList.remove("selected");
+      second.classList.remove("selected");
+      first.classList.add("matched");
+      second.classList.add("matched");
+      m.matchedPairs.push(first.dataset.pairId);
+      if (m.pairs.length > 0 && m.matchedPairs.length >= m.pairs.length) {
+        m.done = true;
+        var complete = byId("board-complete");
+        if (complete) complete.classList.remove("hidden");
+      }
+      return;
+    }
+    first.classList.add("wrong");
+    second.classList.add("wrong");
+    m.locked = true;
+    var seq = ++matchFlashSeq;
+    setTimeout(function () {
+      if (seq !== matchFlashSeq) return;
+      first.classList.remove("wrong");
+      first.classList.remove("selected");
+      second.classList.remove("wrong");
+      second.classList.remove("selected");
+      m.locked = false;
+    }, RED_FLASH_MS);
+  }
+
+  /* ------------------------- Quiz / Exam ------------------------- */
+
+  /* Shared engine behind startQuiz and startExam: seeded question
+     order, true/false assignment, and per-question derived seeds.
+     Choices are built exactly once here and stay stable while the
+     user navigates back and forth. */
+  function beginQuizExam(mode, opts, seed) {
+    var unit = state.unit;
+    if (!unit || unit.questions.length === 0) return;
+    var options = opts || {};
+    var effectiveSeed = freshSeed(seed);
+    var pool = unit.questions;
+    var poolIds = null;
+    if (mode === "quiz" && Array.isArray(options.poolIds)) {
+      pool = options.poolIds.map(function (id) { return unit.questions[id]; }).filter(Boolean);
+      poolIds = pool.map(function (q) { return q.id; });
+      if (pool.length === 0) return;
+    }
+    var total = pool.length;
+    var count = total;
+    if (mode !== "exam") {
+      count = Math.floor(Number(options.count));
+      if (!isFinite(count)) count = total;
+      count = Math.min(Math.max(count, 1), total);
+    }
+    var difficulty = options.difficulty === "medium" || options.difficulty === "hard"
+      ? options.difficulty
+      : "easy";
+    var rawTypes = options.types || [];
+    var hasMc = false;
+    var hasTf = false;
+    for (var t = 0; t < rawTypes.length; t++) {
+      if (rawTypes[t] === "mc") hasMc = true;
+      if (rawTypes[t] === "tf") hasTf = true;
+    }
+    var types = [];
+    if (hasMc) types.push("mc");
+    if (hasTf) types.push("tf");
+    var order = selectFirstN(pool, count, effectiveSeed);
+    var tfFlags = assignTrueFalse(order.length, types);
+    var choices = [];
+    var answers = [];
+    for (var i = 0; i < order.length; i++) {
+      var derived = deriveSeed(effectiveSeed, i);
+      choices.push(tfFlags[i]
+        ? buildTfCandidate(unit, order[i], difficulty, derived, options.legacyChoices)
+        : buildMcChoices(unit, order[i], difficulty, derived, options.legacyChoices));
+      answers.push(null);
+    }
+    state.quiz.mode = mode;
+    state.quiz.seed = effectiveSeed;
+    state.quiz.options = { count: count, difficulty: difficulty, types: types };
+    state.quiz.poolIds = poolIds;
+    state.quiz.checkpointId = null;
+    state.quiz.order = order;
+    state.quiz.tfFlags = tfFlags;
+    state.quiz.choices = choices;
+    state.quiz.answers = answers;
+    state.quiz.index = 0;
+    state.quiz.submitted = false;
+    setSessionStatus("");
+    reviewIndex = 0;
+    hideSubmitModal();
+    renderQuizQuestion();
+    showScreen("quiz");
+  }
+
+  function startQuiz(opts, seed) {
+    beginQuizExam("quiz", opts, seed);
+  }
+
+  function startExam(opts, seed) {
+    beginQuizExam("exam", opts, seed);
+  }
+
+  function renderQuizQuestion() {
+    var q = state.quiz;
+    renderQuizProgress();
+    var question = q.order[q.index];
+    if (!question) return;
+    var tf = !!q.tfFlags[q.index];
+    var data = q.choices[q.index];
+    var questionEl = byId("quiz-question-text");
+    if (questionEl) questionEl.textContent = question.question;
+    var candidateEl = byId("tf-candidate");
+    if (candidateEl) {
+      candidateEl.classList.toggle("hidden", !tf);
+      candidateEl.textContent = tf && data ? data.candidate : "";
+    }
+    var container = byId("quiz-choices");
+    if (container) {
+      container.textContent = "";
+      var slots = tf ? ["true", "false"] : ["a", "b", "c", "d"];
+      for (var s = 0; s < slots.length; s++) {
+        var slot = slots[s];
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "choice";
+        btn.dataset.slot = slot;
+        btn.textContent = tf ? (slot === "true" ? "True" : "False") : data[slot];
+        if (q.answers[q.index] === slot) btn.classList.add("selected");
+        container.appendChild(btn);
+      }
+    }
+    var prev = byId("quiz-prev-btn");
+    var next = byId("quiz-next-btn");
+    if (prev) prev.disabled = q.index <= 0;
+    if (next) next.disabled = q.index >= q.order.length - 1;
+  }
+
+  function onQuizChoicesClick(event) {
+    var container = byId("quiz-choices");
+    var btn = event.target && event.target.closest ? event.target.closest("button.choice") : null;
+    if (!btn || !container || btn.parentElement !== container) return;
+    var slot = btn.dataset.slot;
+    if (!slot) return;
+    state.quiz.answers[state.quiz.index] = slot;
+    setSessionStatus("");
+    renderQuizProgress();
+    var buttons = container.querySelectorAll("button.choice");
+    for (var i = 0; i < buttons.length; i++) {
+      if (buttons[i] === btn) buttons[i].classList.add("selected");
+      else buttons[i].classList.remove("selected");
+    }
+  }
+
+  function goToPrevQuizQuestion() {
+    if (state.quiz.index > 0) {
+      state.quiz.index--;
+      renderQuizQuestion();
+    }
+  }
+
+  function goToNextQuizQuestion() {
+    if (state.quiz.index < state.quiz.order.length - 1) {
+      state.quiz.index++;
+      renderQuizQuestion();
+    }
+  }
+
+  /* Saved files are self-contained: the original bank plus the seed and
+     options reproduce the exact question order and answer choices. */
+  function renderQuizProgress() {
+    var q = state.quiz;
+    var answered = q.answers.filter(function (answer) { return answer !== null && answer !== undefined; }).length;
+    var total = q.order.length;
+    byId("show-progress").checked = state.showProgress;
+    byId("show-seed").checked = state.showSeed;
+    byId("session-meta").classList.toggle("hidden", !state.showSeed);
+    byId("session-panel").classList.toggle("hidden", !state.sessionExpanded);
+    var toggle = byId("session-toggle-btn");
+    var toggleLabel = state.sessionExpanded ? "Hide study controls" : "Show study controls";
+    toggle.textContent = state.sessionExpanded ? "\u2227" : "\u2228";
+    toggle.setAttribute("aria-expanded", String(state.sessionExpanded));
+    toggle.setAttribute("aria-label", toggleLabel);
+    toggle.setAttribute("title", toggleLabel);
+    byId("quiz-progress").classList.toggle("hidden", !state.showProgress);
+    byId("quiz-progress-text").textContent = answered + " of " + total + " answered · " + (total - answered) + " left";
+    byId("quiz-progress-bar").max = total || 1;
+    byId("quiz-progress-bar").value = answered;
+    byId("session-meta").textContent = (q.mode === "exam" ? "Exam" : "Quiz") + " · Seed: " + q.seed;
+  }
+
+  function setSessionStatus(message, isError) {
+    if (!message) return;
+    if (isError === true) notifyError(message); else notify(message);
+  }
+
+  function newCheckpointId() {
+    return "checkpoint-" + Date.now() + "-" + Math.floor(Math.random() * 1e6);
+  }
+
+  function saveQuizProgress() {
+    var q = state.quiz;
+    if (!q.order.length || !state.unitText) return;
+    var url;
+    var anchor;
+    var answered = q.answers.filter(function (a) { return a !== null && a !== undefined; }).length;
+    // One checkpoint per attempt: saving again (or saving a resumed
+    // attempt) updates the same checkpoint instead of adding a new one.
+    if (hasDesktop && !q.checkpointId) q.checkpointId = newCheckpointId();
+    var snapshot = {
+      format: "study-website-session", version: 1,
+      savedAt: new Date().toISOString(), unitTitle: state.unit ? state.unit.unitTitle : "",
+      answeredCount: answered, totalCount: q.order.length,
+      unitText: state.unitText,
+      mode: q.mode, seed: q.seed, options: q.options, poolIds: q.poolIds,
+      // The exact questions and choices, so resuming never depends on
+      // how choices happen to be generated in a later version.
+      generator: 2,
+      orderIds: q.order.map(function (item) { return item.id; }),
+      tfFlags: q.tfFlags.slice(),
+      choices: q.choices,
+      answers: q.answers, index: q.index, showProgress: state.showProgress,
+      showSeed: state.showSeed, sessionExpanded: state.sessionExpanded
+    };
+    if (hasDesktop) {
+      var id = q.checkpointId;
+      desktopCall("save_checkpoint", { id: id, json: JSON.stringify(snapshot, null, 2) })
+        .then(function () {
+          setSessionStatus("Progress saved (" + answered + " of " + q.order.length + " answered).");
+        })
+        .catch(function (err) { setSessionStatus("Could not save progress: " + err.message, true); });
+      return;
+    }
+    try {
+      url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }));
+      anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = q.mode + "-seed-" + q.seed + "-progress.json";
+      document.body.appendChild(anchor);
+      anchor.click();
+      setSessionStatus("Progress saved. Use Resume saved progress to continue from this point.");
+    } catch (err) {
+      setSessionStatus("Could not save progress. Please try again.", true);
+    } finally {
+      if (anchor) anchor.remove();
+      if (url) setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+  }
+
+  function restoreQuizProgress(text, checkpointId) {
+    var saved = JSON.parse(text);
+    function requireValid(condition) {
+      if (!condition) throw new Error("This is not a valid Study Website progress file.");
+    }
+    requireValid(saved && saved.format === "study-website-session" && saved.version === 1);
+    requireValid(saved.mode === "quiz" || saved.mode === "exam");
+    requireValid(Number.isSafeInteger(saved.seed) && saved.seed >= 0);
+    var unit = parseUnitFile(saved.unitText);
+    var opts = saved.options;
+    requireValid(opts && Number.isInteger(opts.count) && opts.count >= 1 && opts.count <= unit.questions.length);
+    requireValid(saved.mode !== "exam" || opts.count === unit.questions.length);
+    requireValid(["easy", "medium", "hard"].indexOf(opts.difficulty) !== -1);
+    requireValid(Array.isArray(opts.types) && opts.types.length >= 1 && opts.types.length <= 2 &&
+      opts.types.every(function (type) { return type === "mc" || type === "tf"; }) &&
+      new Set(opts.types).size === opts.types.length);
+    requireValid(Array.isArray(saved.answers) && saved.answers.length === opts.count);
+    requireValid(Number.isInteger(saved.index) && saved.index >= 0 && saved.index < opts.count);
+    requireValid(typeof saved.showProgress === "boolean");
+    requireValid(saved.showSeed === undefined || typeof saved.showSeed === "boolean");
+    requireValid(saved.sessionExpanded === undefined || typeof saved.sessionExpanded === "boolean");
+    // Quizzes started with "Skip completed questions" save the exact pool
+    // they drew from, so the same questions come back even if the
+    // completed list has changed since.
+    var poolIds = null;
+    if (saved.poolIds !== undefined && saved.poolIds !== null) {
+      requireValid(saved.mode === "quiz" && Array.isArray(saved.poolIds) &&
+        saved.poolIds.length >= opts.count &&
+        saved.poolIds.every(function (id) { return Number.isInteger(id) && id >= 0 && id < unit.questions.length; }) &&
+        new Set(saved.poolIds).size === saved.poolIds.length);
+      poolIds = saved.poolIds.slice();
+    }
+    // Checkpoints from v1.2.1 and earlier don't store their choices: those
+    // are rebuilt with the original generator so saved answers still line up.
+    var stored = saved.choices !== undefined;
+    if (stored) {
+      requireValid(Array.isArray(saved.orderIds) && saved.orderIds.length === opts.count &&
+        saved.orderIds.every(function (id) { return Number.isInteger(id) && id >= 0 && id < unit.questions.length; }) &&
+        new Set(saved.orderIds).size === saved.orderIds.length);
+      requireValid(Array.isArray(saved.tfFlags) && saved.tfFlags.length === opts.count &&
+        saved.tfFlags.every(function (f) { return typeof f === "boolean"; }));
+      requireValid(Array.isArray(saved.choices) && saved.choices.length === opts.count &&
+        saved.choices.every(function (c, i) {
+          if (!c || typeof c !== "object") return false;
+          if (saved.tfFlags[i]) return typeof c.candidate === "string" && typeof c.isReal === "boolean";
+          return ["a", "b", "c", "d"].every(function (k) { return typeof c[k] === "string"; }) &&
+            ["a", "b", "c", "d"].indexOf(c.correctSlot) !== -1;
+        }));
+    }
+    var flags = stored ? saved.tfFlags : assignTrueFalse(opts.count, opts.types);
+    requireValid(saved.answers.every(function (answer, i) {
+      return answer === null || (flags[i] ? ["true", "false"] : ["a", "b", "c", "d"]).indexOf(answer) !== -1;
+    }));
+    // Validate fully before replacing the current unit or attempt.
+    if (!state.unit || state.unit.unitTitle !== unit.unitTitle) {
+      state.bankPath = "";
+      renderBankPath();
+    }
+    state.unit = unit;
+    state.unitText = saved.unitText;
+    state.showProgress = saved.showProgress;
+    state.showSeed = saved.showSeed !== false;
+    state.sessionExpanded = saved.sessionExpanded !== false;
+    renderHome(unit);
+    loadCompletedForUnit();
+    beginQuizExam(saved.mode, {
+      count: opts.count, difficulty: opts.difficulty, types: opts.types, poolIds: poolIds,
+      legacyChoices: !stored
+    }, saved.seed);
+    if (stored) {
+      state.quiz.order = saved.orderIds.map(function (id) { return unit.questions[id]; });
+      state.quiz.tfFlags = saved.tfFlags.slice();
+      state.quiz.choices = saved.choices.map(function (c) { return Object.assign({}, c); });
+    }
+    state.quiz.answers = saved.answers.slice();
+    state.quiz.index = saved.index;
+    state.quiz.checkpointId = checkpointId || null;
+    renderQuizQuestion();
+    setSessionStatus("Progress restored.");
+  }
+
+  function readProgressFile(file) {
+    if (!file) return;
+    var error = byId("resume-error");
+    error.classList.add("hidden");
+    var reader = new FileReader();
+    function fail(message) { notifyError(message); }
+    reader.onload = function () {
+      try { restoreQuizProgress(String(reader.result)); }
+      catch (err) { fail("Could not resume. Choose a valid JSON file downloaded with Save progress."); }
+    };
+    reader.onerror = function () { fail("The progress file could not be read. Please try again."); };
+    reader.readAsText(file);
+  }
+
+  /* ---------------------------- Checkpoints ----------------------------
+     Desktop only: "Save progress" writes a checkpoint to
+     ~/Documents/StudyWebsite/checkpoints, and "Resume saved progress"
+     shows them here as a two-column grid of tiles, newest first. */
+
+  var checkpointsReturnTo = "landing";
+  var pendingDeleteCheckpoint = null;
+  var pendingDeleteCheckpointTitle = "";
+  var pendingDoneCheckpoint = null;
+
+  function formatSavedAt(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "Unknown date";
+    return d.toLocaleString(undefined, {
+      weekday: "short", month: "short", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit"
+    });
+  }
+
+  function describeCheckpoint(id, text) {
+    var info = { id: id, ok: false, savedAt: "", title: "Unreadable checkpoint" };
+    try {
+      var data = JSON.parse(text);
+      if (!data || data.format !== "study-website-session") return info;
+      var title = typeof data.unitTitle === "string" ? data.unitTitle : "";
+      if (!title && typeof data.unitText === "string") {
+        var m = data.unitText.match(/^\s*unit_title\s*:(.*)$/m);
+        if (m) title = m[1].trim();
+      }
+      var total = typeof data.totalCount === "number" ? data.totalCount : (Array.isArray(data.answers) ? data.answers.length : 0);
+      var answered = typeof data.answeredCount === "number" ? data.answeredCount
+        : (Array.isArray(data.answers) ? data.answers.filter(function (a) { return a !== null; }).length : 0);
+      info.ok = true;
+      info.title = title || "Untitled unit";
+      info.mode = data.mode === "exam" ? "exam" : "quiz";
+      info.savedAt = typeof data.savedAt === "string" ? data.savedAt : "";
+      info.difficulty = data.options && typeof data.options.difficulty === "string" ? data.options.difficulty : "";
+      info.answered = answered;
+      info.total = total;
+    } catch (err) { /* leave as unreadable */ }
+    return info;
+  }
+
+  function openCheckpoints(from) {
+    checkpointsReturnTo = from || "landing";
+    showScreen("checkpoints");
+    renderCheckpoints();
+  }
+
+  function renderCheckpoints() {
+    var grid = byId("checkpoint-grid");
+    var errorEl = byId("checkpoints-error");
+    if (!grid) return;
+    if (errorEl) errorEl.textContent = "";
+    grid.textContent = "";
+    desktopCall("list_checkpoints")
+      .then(function (entries) {
+        grid.textContent = "";
+        var items = entries.map(function (e) {
+          try { return describeCheckpoint(e[0], e[1]); }
+          catch (err) { return { id: e[0], ok: false, savedAt: "", title: "Unreadable checkpoint" }; }
+        });
+        items.sort(function (a, b) { return (b.savedAt || "").localeCompare(a.savedAt || ""); });
+        if (!items.length) {
+          var empty = document.createElement("p");
+          empty.className = "checkpoints-empty";
+          empty.textContent = "No checkpoints yet. Press Save progress during a quiz or exam to create one.";
+          grid.appendChild(empty);
+          return;
+        }
+        items.forEach(function (item) { grid.appendChild(buildCheckpointTile(item)); });
+      })
+      .catch(function (err) { notifyError(err.message); });
+  }
+
+  function buildCheckpointTile(item) {
+    var outer = document.createElement("div");
+    outer.className = "checkpoint-tile" + (item.ok ? "" : " broken");
+    var tile = document.createElement("div");
+    tile.className = "tile-body";
+    outer.appendChild(tile);
+    var title = document.createElement("p");
+    title.className = "checkpoint-unit";
+    title.textContent = item.title;
+    tile.appendChild(title);
+    if (item.ok) {
+      var mode = document.createElement("span");
+      mode.className = "checkpoint-mode" + (item.mode === "exam" ? " exam" : "");
+      mode.textContent = item.mode === "exam" ? "Exam" : "Quiz";
+      tile.appendChild(mode);
+      var when = document.createElement("span");
+      when.className = "checkpoint-meta";
+      when.textContent = formatSavedAt(item.savedAt);
+      tile.appendChild(when);
+      var meta = document.createElement("p");
+      meta.className = "checkpoint-meta";
+      var diff = item.difficulty ? item.difficulty.charAt(0).toUpperCase() + item.difficulty.slice(1) + " · " : "";
+      meta.textContent = diff + item.answered + " of " + item.total + " answered";
+      tile.appendChild(meta);
+      outer.tabIndex = 0;
+      outer.setAttribute("role", "button");
+      outer.setAttribute("aria-label", "Resume " + mode.textContent + ": " + item.title + ", saved " + when.textContent);
+      outer.addEventListener("click", function () { resumeCheckpoint(item.id); });
+      outer.addEventListener("keydown", function (event) {
+        if (event.target === outer && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          resumeCheckpoint(item.id);
+        }
+      });
+    } else {
+      var broken = document.createElement("p");
+      broken.className = "checkpoint-meta";
+      broken.textContent = "This file couldn't be read. You can delete it.";
+      tile.appendChild(broken);
+    }
+    var actions = document.createElement("div");
+    actions.className = "tile-actions";
+    actions.appendChild(makeTileButton("Delete", "Delete checkpoint: " + item.title, function () {
+      pendingDeleteCheckpoint = item.id;
+      pendingDeleteCheckpointTitle = item.title;
+      byId("checkpoint-delete-hint").textContent = item.title +
+        (item.ok ? " (" + (item.mode === "exam" ? "Exam" : "Quiz") + ", saved " + formatSavedAt(item.savedAt) + ")" : "");
+      byId("checkpoint-delete-modal").classList.remove("hidden");
+    }));
+    outer.appendChild(actions);
+    return outer;
+  }
+
+  function resumeCheckpoint(id) {
+    var errorEl = byId("checkpoints-error");
+    desktopCall("read_checkpoint", { id: id })
+      .then(function (text) { restoreQuizProgress(text, id); })
+      .catch(function (err) {
+        notifyError(err && err.message && err.message.indexOf("valid") !== -1
+          ? "That checkpoint couldn't be resumed. It may be damaged or from a different version."
+          : (err.message || "That checkpoint couldn't be resumed."));
+      });
+  }
+
+  function deleteCheckpoint(id) {
+    if (state.quiz.checkpointId === id) state.quiz.checkpointId = null;
+    return desktopCall("delete_checkpoint", { id: id });
+  }
+
+  /* ------------------------- Submit + review ------------------------- */
+
+  function hideSubmitModal() {
+    var modal = byId("submit-modal");
+    if (modal) modal.classList.add("hidden");
+  }
+
+  function hasUnansweredQuestion() {
+    var answers = state.quiz.answers;
+    for (var i = 0; i < answers.length; i++) {
+      if (answers[i] === null || answers[i] === undefined) return true;
+    }
+    return false;
+  }
+
+  function onSubmitQuiz() {
+    if (hasUnansweredQuestion()) {
+      var modal = byId("submit-modal");
+      if (modal) modal.classList.remove("hidden");
+      return;
+    }
+    goToReview();
+  }
+
+  function goToReview() {
+    var firstSubmit = !state.quiz.submitted;
+    state.quiz.submitted = true;
+    var note = byId("review-completed-note");
+    if (note && firstSubmit) {
+      note.textContent = "";
+      if (state.quiz.mode === "quiz") {
+        var added = markCorrectAsCompleted();
+        if (added > 0) {
+          note.textContent = added + (added === 1 ? " question" : " questions") + " marked completed.";
+        }
+      }
+    }
+    if (firstSubmit && state.quiz.checkpointId) {
+      pendingDoneCheckpoint = state.quiz.checkpointId;
+      byId("checkpoint-done-modal").classList.remove("hidden");
+    }
+    reviewIndex = 0;
+    hideSubmitModal();
+    renderReview();
+    showScreen("quiz-review");
+  }
+
+  /* One review page at a time: the question (with its candidate for
+     true/false), the same choices as during the quiz, a green outline
+     on the correct choice, a red outline on a wrongly picked choice,
+     and a "Not answered" note when the question was left blank. */
+  function renderReview() {
+    var q = state.quiz;
+    var list = byId("review-list");
+    if (!list) return;
+    list.textContent = "";
+    var i = reviewIndex;
+    var question = q.order[i];
+    if (!question) return;
+    var tf = !!q.tfFlags[i];
+    var data = q.choices[i];
+    var answer = q.answers[i];
+    var correctSlot = tf ? (data.isReal ? "true" : "false") : data.correctSlot;
+
+    var item = document.createElement("div");
+    item.className = "review-item";
+
+    var number = document.createElement("p");
+    number.className = "review-number";
+    number.textContent = "Question " + (i + 1) + " of " + q.order.length;
+    item.appendChild(number);
+
+    var questionEl = document.createElement("p");
+    questionEl.className = "review-question";
+    questionEl.textContent = question.question;
+    item.appendChild(questionEl);
+
+    if (tf) {
+      var candidateEl = document.createElement("p");
+      candidateEl.className = "review-candidate";
+      candidateEl.textContent = data.candidate;
+      item.appendChild(candidateEl);
+    }
+
+    var choicesEl = document.createElement("div");
+    choicesEl.className = "review-choices";
+    var slots = tf ? ["true", "false"] : ["a", "b", "c", "d"];
+    for (var s = 0; s < slots.length; s++) {
+      var slot = slots[s];
+      var el = document.createElement("div");
+      el.className = "review-choice";
+      el.textContent = tf ? (slot === "true" ? "True" : "False") : data[slot];
+      if (slot === correctSlot) {
+        el.classList.add("correct-outline");
+      } else if (answer === slot) {
+        el.classList.add("picked-outline");
+      }
+      choicesEl.appendChild(el);
+    }
+    item.appendChild(choicesEl);
+
+    if (answer === null || answer === undefined) {
+      var note = document.createElement("p");
+      note.className = "not-answered-note";
+      note.textContent = "Not answered";
+      item.appendChild(note);
+    }
+
+    list.appendChild(item);
+
+    var prev = byId("review-prev-btn");
+    var next = byId("review-next-btn");
+    if (prev) prev.disabled = reviewIndex <= 0;
+    if (next) next.disabled = reviewIndex >= q.order.length - 1;
+  }
+
+  function goToPrevReviewPage() {
+    if (reviewIndex > 0) {
+      reviewIndex--;
+      renderReview();
+    }
+  }
+
+  function goToNextReviewPage() {
+    if (reviewIndex < state.quiz.order.length - 1) {
+      reviewIndex++;
+      renderReview();
+    }
+  }
+
+  /* --------------------- Options screen Start --------------------- */
+
+  function selectedTypes(mcCheckbox, tfCheckbox) {
+    var types = [];
+    if (mcCheckbox && mcCheckbox.checked) types.push("mc");
+    if (tfCheckbox && tfCheckbox.checked) types.push("tf");
+    return types;
+  }
+
+  function onQuizStartClick() {
+    var types = selectedTypes(byId("type-mc"), byId("type-tf"));
+    var errorEl = byId("quiz-options-error");
+    if (types.length === 0) {
+      notifyError("Select at least one question type: Multiple Choice or True/False.");
+      return;
+    }
+    if (errorEl) errorEl.textContent = "";
+    var skip = byId("skip-completed");
+    var skipping = !!(skip && skip.checked);
+    var pool = quizPool();
+    if (pool.length === 0) {
+      notifyError("Every question is completed. Press Reset completed on the Home screen to start over, or turn off Skip completed questions.");
+      return;
+    }
+    var total = pool.length;
+    var countInput = byId("quiz-count");
+    var count = countInput ? parseInt(countInput.value, 10) : NaN;
+    if (!isFinite(count)) count = total;
+    count = Math.min(Math.max(count, 1), total);
+    var checked = document.querySelector('input[name="quiz-difficulty"]:checked');
+    startQuiz(
+      {
+        count: count, difficulty: checked ? checked.value : "easy", types: types,
+        poolIds: skipping ? pool.map(function (q) { return q.id; }) : null
+      },
+      Date.now()
+    );
+  }
+
+  function onExamStartClick() {
+    var types = selectedTypes(byId("exam-type-mc"), byId("exam-type-tf"));
+    var errorEl = byId("exam-options-error");
+    if (types.length === 0) {
+      notifyError("Select at least one question type: Multiple Choice or True/False.");
+      return;
+    }
+    if (errorEl) errorEl.textContent = "";
+    var checked = document.querySelector('input[name="exam-difficulty"]:checked');
+    startExam(
+      { difficulty: checked ? checked.value : "easy", types: types },
+      Date.now()
+    );
+  }
+
+  /* =====================================================================
+     5. GLOBAL EXPORT
+     ===================================================================== */
+
+  window.StudyApp = {
+    mulberry32: mulberry32,
+    seededShuffle: seededShuffle,
+    deriveSeed: deriveSeed,
+    parseUnitFile: parseUnitFile,
+    easyDistractors: easyDistractors,
+    selectFirstN: selectFirstN,
+    assignTrueFalse: assignTrueFalse,
+    buildMcChoices: buildMcChoices,
+    buildTfCandidate: buildTfCandidate,
+    buildBoardTiles: buildBoardTiles,
+    docsMarkdown: docsMarkdown,
+    loadUnitText: loadUnitText,
+    showScreen: showScreen,
+    defaultTheme: defaultTheme,
+    setTheme: setTheme,
+    toggleTheme: toggleTheme,
+    startFlashcards: startFlashcards,
+    startMatch: startMatch,
+    shuffleBoard: shuffleBoard,
+    startQuiz: startQuiz,
+    startExam: startExam,
+    state: state,
+    __test: { RED_FLASH_MS: RED_FLASH_MS }
+  };
+
+  /* =====================================================================
+     6. LISTENER WIRING (on DOMContentLoaded)
+     ===================================================================== */
+
+  function init() {
+    /* --- Theme: start from the OS preference, session-only --- */
+    setTheme(defaultTheme());
+    var themeToggle = byId("theme-toggle-btn");
+    if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
+
+    /* --- Landing: docs link, select-file button, input, drop zone --- */
+    var docsLink = byId("docs-link");
+    if (docsLink) docsLink.addEventListener("click", function () { showScreen("docs"); });
+
+    var selectBtn = byId("select-file-btn");
+    var fileInput = byId("file-input");
+    if (selectBtn && fileInput) {
+      selectBtn.addEventListener("click", function () { fileInput.click(); });
+    }
+    if (fileInput) {
+      fileInput.addEventListener("change", function () {
+        var file = fileInput.files && fileInput.files[0];
+        if (file) readUnitFile(file);
+        fileInput.value = "";
+      });
+    }
+    var dropZone = byId("drop-zone");
+    if (dropZone) {
+      dropZone.addEventListener("dragover", function (event) {
+        if (event.preventDefault) event.preventDefault();
+        dropZone.classList.add("drag-over");
+      });
+      dropZone.addEventListener("dragleave", function () {
+        dropZone.classList.remove("drag-over");
+      });
+      dropZone.addEventListener("drop", function (event) {
+        if (event.preventDefault) event.preventDefault();
+        dropZone.classList.remove("drag-over");
+        var file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+        if (file) readUnitFile(file);
+        else if (!hasDesktop) notifyError("That wasn't a file. Drag a unit file (.txt) from your file manager.");
+      });
+    }
+
+    /* --- Documentation screen --- */
+    renderDocsPage();
+    byId("docs-prev-btn").addEventListener("click", function () { goToDocsPage(docsPage - 1); });
+    byId("docs-next-btn").addEventListener("click", function () { goToDocsPage(docsPage + 1); });
+    var downloadBtn = byId("download-md-btn");
+    if (downloadBtn) downloadBtn.addEventListener("click", downloadDocs);
+    var docsBack = byId("docs-back-btn");
+    if (docsBack) docsBack.addEventListener("click", function () { showScreen("landing"); });
+
+    /* --- Home: mode buttons --- */
+    var flashcardBtn = byId("mode-flashcard-btn");
+    if (flashcardBtn) flashcardBtn.addEventListener("click", function () { startFlashcards(); });
+    var matchBtn = byId("mode-match-btn");
+    if (matchBtn) matchBtn.addEventListener("click", function () { showScreen("match-size"); });
+    var quizBtn = byId("mode-quiz-btn");
+    if (quizBtn) quizBtn.addEventListener("click", function () { showScreen("quiz-options"); });
+    var examBtn = byId("mode-exam-btn");
+    if (examBtn) examBtn.addEventListener("click", function () { showScreen("exam-options"); });
+
+    /* --- Flashcard screen --- */
+    var card = byId("flashcard-card");
+    if (card) card.addEventListener("click", flipFlashcard);
+    var flipBtn = byId("flip-btn");
+    if (flipBtn) flipBtn.addEventListener("click", flipFlashcard);
+    var prevBtn = byId("prev-card-btn");
+    if (prevBtn) prevBtn.addEventListener("click", goToPrevCard);
+    var nextBtn = byId("next-card-btn");
+    if (nextBtn) nextBtn.addEventListener("click", goToNextCard);
+
+    /* --- Matching tiles --- */
+    var sizeButtons = document.querySelectorAll("#screen-match-size .match-size-btn");
+    for (var sb = 0; sb < sizeButtons.length; sb++) {
+      sizeButtons[sb].addEventListener("click", function (event) {
+        var size = parseInt(event.currentTarget.getAttribute("data-size"), 10);
+        if (isFinite(size)) startMatch(size, Date.now());
+      });
+    }
+    var matchGrid = byId("match-grid");
+    if (matchGrid) matchGrid.addEventListener("click", onMatchGridClick);
+    var shuffleBtn = byId("shuffle-btn");
+    if (shuffleBtn) shuffleBtn.addEventListener("click", function () { shuffleBoard(Date.now()); });
+
+    /* --- Quiz / Exam --- */
+    byId("show-seed").addEventListener("change", function (event) {
+      state.showSeed = event.target.checked;
+      renderQuizProgress();
+    });
+    byId("session-toggle-btn").addEventListener("click", function () {
+      state.sessionExpanded = !state.sessionExpanded;
+      renderQuizProgress();
+    });
+    byId("show-progress").addEventListener("change", function (event) {
+      state.showProgress = event.target.checked;
+      renderQuizProgress();
+    });
+    byId("save-progress-btn").addEventListener("click", saveQuizProgress);
+    var resumeInput = byId("resume-file-input");
+    document.querySelectorAll(".resume-session-btn").forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (hasDesktop) openCheckpoints(state.screen === "home" ? "home" : "landing");
+        else resumeInput.click();
+      });
+    });
+    resumeInput.addEventListener("change", function () {
+      readProgressFile(resumeInput.files && resumeInput.files[0]);
+      resumeInput.value = "";
+    });
+    var quizStartBtn = byId("quiz-start-btn");
+    if (quizStartBtn) quizStartBtn.addEventListener("click", onQuizStartClick);
+    var examStartBtn = byId("exam-start-btn");
+    if (examStartBtn) examStartBtn.addEventListener("click", onExamStartClick);
+    var quizChoices = byId("quiz-choices");
+    if (quizChoices) quizChoices.addEventListener("click", onQuizChoicesClick);
+    var quizPrevBtn = byId("quiz-prev-btn");
+    if (quizPrevBtn) quizPrevBtn.addEventListener("click", goToPrevQuizQuestion);
+    var quizNextBtn = byId("quiz-next-btn");
+    if (quizNextBtn) quizNextBtn.addEventListener("click", goToNextQuizQuestion);
+    var submitQuizBtn = byId("submit-quiz-btn");
+    if (submitQuizBtn) submitQuizBtn.addEventListener("click", onSubmitQuiz);
+    var submitBackBtn = byId("submit-back-btn");
+    if (submitBackBtn) submitBackBtn.addEventListener("click", hideSubmitModal);
+    var submitContinueBtn = byId("submit-continue-btn");
+    if (submitContinueBtn) submitContinueBtn.addEventListener("click", goToReview);
+    var reviewPrevBtn = byId("review-prev-btn");
+    if (reviewPrevBtn) reviewPrevBtn.addEventListener("click", goToPrevReviewPage);
+    var reviewNextBtn = byId("review-next-btn");
+    if (reviewNextBtn) reviewNextBtn.addEventListener("click", goToNextReviewPage);
+
+    /* --- Saved folder + completed questions --- */
+    var openSavedBtn = byId("open-saved-bank-btn");
+    var saveBankBtn = byId("save-bank-btn");
+    if (hasDesktop) {
+      desktopCall("data_folder").then(function (path) { dataFolderPath = path; }).catch(function () {});
+      setupNativeDrop();
+      var quitBtn = byId("quit-btn");
+      quitBtn.classList.remove("hidden");
+      quitBtn.addEventListener("click", function () { desktopCall("quit_app").catch(function () {}); });
+      openSavedBtn.addEventListener("click", openBanks);
+      saveBankBtn.addEventListener("click", saveBankToFolder);
+    } else {
+      openSavedBtn.disabled = true;
+      saveBankBtn.disabled = true;
+      openSavedBtn.title = DESKTOP_ONLY_NOTE;
+      saveBankBtn.title = DESKTOP_ONLY_NOTE;
+      byId("landing-folder-note").textContent = DESKTOP_ONLY_NOTE;
+    }
+    var resetModal = byId("reset-modal");
+    byId("reset-completed-btn").addEventListener("click", function () { resetModal.classList.remove("hidden"); });
+    byId("reset-cancel-btn").addEventListener("click", function () { resetModal.classList.add("hidden"); });
+    byId("reset-confirm-btn").addEventListener("click", function () {
+      resetModal.classList.add("hidden");
+      resetCompleted();
+    });
+    byId("skip-completed").addEventListener("change", function () {
+      var errorEl = byId("quiz-options-error");
+      if (errorEl) errorEl.textContent = "";
+      updateQuizCountLimit(true);
+    });
+
+    /* --- Checkpoints --- */
+    byId("checkpoint-import-btn").addEventListener("click", function () { resumeInput.click(); });
+    byId("checkpoints-back-btn").addEventListener("click", function () { showScreen(checkpointsReturnTo); });
+    byId("checkpoint-delete-cancel-btn").addEventListener("click", function () {
+      pendingDeleteCheckpoint = null;
+      byId("checkpoint-delete-modal").classList.add("hidden");
+    });
+    byId("checkpoint-delete-confirm-btn").addEventListener("click", function () {
+      var id = pendingDeleteCheckpoint;
+      pendingDeleteCheckpoint = null;
+      byId("checkpoint-delete-modal").classList.add("hidden");
+      if (!id) return;
+      var title = pendingDeleteCheckpointTitle;
+      deleteCheckpoint(id)
+        .then(function () {
+          notify("Checkpoint for " + title + " deleted.");
+          renderCheckpoints();
+        })
+        .catch(function (err) { notifyError(err.message); });
+    });
+    byId("checkpoint-done-keep-btn").addEventListener("click", function () {
+      pendingDoneCheckpoint = null;
+      byId("checkpoint-done-modal").classList.add("hidden");
+    });
+    byId("checkpoint-done-delete-btn").addEventListener("click", function () {
+      var id = pendingDoneCheckpoint;
+      pendingDoneCheckpoint = null;
+      byId("checkpoint-done-modal").classList.add("hidden");
+      if (!id) return;
+      var unitTitle = state.unit ? state.unit.unitTitle : "this attempt";
+      deleteCheckpoint(id)
+        .then(function () { notify("Checkpoint for " + unitTitle + " deleted."); })
+        .catch(function (err) { notifyError(err.message); });
+    });
+
+    /* --- Question banks --- */
+    byId("banks-back-btn").addEventListener("click", function () { showScreen("landing"); });
+    byId("bank-rename-cancel-btn").addEventListener("click", hideBankRename);
+    byId("bank-rename-save-btn").addEventListener("click", saveBankRename);
+    byId("bank-rename-input").addEventListener("keydown", function (event) {
+      if (event.key === "Enter") { event.preventDefault(); saveBankRename(); }
+      if (event.key === "Escape") { event.preventDefault(); hideBankRename(); }
+    });
+    byId("bank-delete-cancel-btn").addEventListener("click", function () {
+      pendingBankDelete = null;
+      byId("bank-delete-modal").classList.add("hidden");
+    });
+    byId("bank-delete-confirm-btn").addEventListener("click", confirmBankDelete);
+
+    /* --- Back to the landing page from Home --- */
+    byId("back-to-landing-btn").addEventListener("click", function () {
+      setLandingError("");
+      showScreen("landing");
+    });
+
+    /* --- Return Home on every mode screen --- */
+    var homeButtons = document.querySelectorAll("button.return-home");
+    for (var i = 0; i < homeButtons.length; i++) {
+      homeButtons[i].addEventListener("click", function () { showScreen("home"); });
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

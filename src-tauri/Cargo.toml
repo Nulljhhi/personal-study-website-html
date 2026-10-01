@@ -1,0 +1,16 @@
+[package]
+name = "study-website"
+version = "1.3.1"
+description = "Study Website desktop app"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde_json = "1"
+
+[profile.release]
+strip = true
+lto = true
