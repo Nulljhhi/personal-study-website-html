@@ -182,7 +182,9 @@ const mkBank = (t) => 'unit_title: ' + t + '\n\n' + [1, 2, 3].map(i => `question
   const turn0 = await g.evaluate(() => StudyApp.__test.game().turn);
   await g.clock.fastForward(6000);
   const lf = await g.evaluate(() => { const x = StudyApp.__test.game(); return { turn: x.turn, spent: x.current.spent }; });
-  check(lf.turn === turn0 + 1 && lf.spent === 0, 'the next question starts fresh after a long frame: ' + JSON.stringify(lf));
+  // One ordinary frame may run after the stall before this reads it; the
+  // bug gave the new question nearly all of the stall's 6,000 ms.
+  check(lf.turn === turn0 + 1 && lf.spent < 20, 'the next question starts fresh after a long frame: ' + JSON.stringify(lf));
   await g.close();
 
   // Warehouse Tycoon: a crate stays highlighted while it's multiplying the order.
