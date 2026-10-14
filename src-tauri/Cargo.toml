@@ -3,6 +3,8 @@ name = "study-website"
 version = "1.9.1"
 description = "Study Website desktop app"
 edition = "2021"
+# File locking (the data-folder lock) needs Rust 1.89 or newer.
+rust-version = "1.89"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

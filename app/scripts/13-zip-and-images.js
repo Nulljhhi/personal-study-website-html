@@ -367,24 +367,30 @@
   /* Measure pictures a few at a time (all at once could decode dozens of
      big pictures together; one at a time is slow). */
   function measureAll(list, limit) {
-    var i = 0, out = {};
+    var i = 0, out = {}, made = [], failed = false;
     var next = function () {
-      if (i >= list.length) return Promise.resolve();
+      // One picture failed: the others stop, and nothing more is made.
+      if (failed || i >= list.length) return Promise.resolve();
       var im = list[i++], src = "data:" + im.type + ";base64," + im.b64;
       // From the raw bytes when there are any: one Blob, used to measure the
       // picture now and to show it later (see seedImageUrls).
       var blobUrl = im.bytes && typeof Blob === "function" ? URL.createObjectURL(new Blob([im.bytes], { type: im.type })) : null;
+      if (blobUrl) made.push(blobUrl);
       return measureImage(blobUrl || src, im.name).then(function (dim) {
         out[im.n] = { name: im.name, src: src, id: im.id, width: dim.width, height: dim.height, blobUrl: blobUrl };
         return next();
-      }, function (err) {
-        if (blobUrl) URL.revokeObjectURL(blobUrl);
-        throw err;
       });
     };
     var runners = [];
     for (var k = 0; k < Math.min(limit, list.length); k++) runners.push(next());
-    return Promise.all(runners).then(function () { return out; });
+    var settled = runners.map(function (r) { return r.then(function () { return null; }, function (err) { failed = true; return err; }); });
+    return Promise.all(settled).then(function (errs) {
+      var err = errs.filter(Boolean)[0];
+      if (!err) return out;
+      // The .zip is refused: let go of every picture made for it.
+      made.forEach(function (u) { URL.revokeObjectURL(u); });
+      throw err;
+    });
   }
 
   /* A zip's bytes → the bank's text with its images attached. */
@@ -631,8 +637,11 @@
         }
         var cur = api.cursor;
         api.cursor = null;
-        if (said) said.textContent = "Picked " + Math.round(cur.x) + "% across, " + Math.round(cur.y) + "% down.";
         choose(cur.x, cur.y);
+        // A game can refuse a pick (while fog hides the picture, say).
+        if (said) said.textContent = api.pick
+          ? "Picked " + Math.round(cur.x) + "% across, " + Math.round(cur.y) + "% down."
+          : "That pick wasn't taken. Wait until the picture can be seen.";
       }
     });
     if (api.pick) api.setPick(api.pick);

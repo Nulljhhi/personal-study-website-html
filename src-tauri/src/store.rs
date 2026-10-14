@@ -6,6 +6,10 @@
 //!     banks/<unit title>.txt      copies of question banks (named for people)
 //!     progress/<bank id>.json     completed questions + game data, one per bank
 //!     checkpoints/<id>.json       saved quiz/exam sessions ("Save progress")
+//!     images/<sha-256>.<ext>      pictures, stored once each (images.rs)
+//!     .lock                       held by the running copy of the app
+//!     .check-pictures             a bank or checkpoint went away since the
+//!                                 last look for unused pictures
 //!     rename-backup/              only while a rename runs: copies of every
 //!                                 file it changes, put back on the next start
 //!                                 if the app stopped partway through
@@ -36,6 +40,7 @@ const RENAME_BACKUP_DIR: &str = "rename-backup";
 const RENAME_MANIFEST: &str = "manifest.json";
 const LOCK_FILE: &str = ".lock";
 pub const READ_MANY_LIMIT: usize = 100;
+const READ_MANY_BYTES: usize = 64 * 1024 * 1024;
 /// There when a bank or checkpoint was deleted, renamed or replaced since
 /// the last look for unused pictures (see collect_images).
 const PICTURE_CHECK_MARK: &str = ".check-pictures";
@@ -148,12 +153,11 @@ pub fn check_bank_owner(path: &Path, title: &str) -> Result<(), String> {
 pub fn lock_data_folder(root: &Path) -> Result<Option<fs::File>, String> {
     fs::create_dir_all(root).map_err(|e| format!("Could not create {}: {e}", root.display()))?;
     let path = root.join(LOCK_FILE);
-    let file = fs::OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(&path)
-        .map_err(|e| format!("Could not open {}: {e}", path.display()))?;
+    // A lock file that can't be opened (read-only, another user's) means no
+    // lock, as on a drive that can't lock: the app still works.
+    let Ok(file) = fs::OpenOptions::new().create(true).truncate(false).write(true).open(&path) else {
+        return Ok(None);
+    };
     match file.try_lock() {
         Ok(()) => Ok(Some(file)),
         Err(fs::TryLockError::WouldBlock) => Err(format!(
@@ -509,16 +513,16 @@ impl Store {
         sync_files(paths.iter().map(|p| p.as_path()))
     }
 
-    /// Last-modified time of this title's progress file (0 if none), with
-    /// the index already read (listings read it once). Read-only: an old
-    /// title-named file is looked at, not moved.
-    fn progress_modified_in(&self, index: Option<&Map<String, Value>>, title: &str) -> u64 {
+    /// Last-modified time and size of this title's progress file (0, 0 if
+    /// none), with the index already read (listings read it once).
+    /// Read-only: an old title-named file is looked at, not moved.
+    fn progress_stamp_in(&self, index: Option<&Map<String, Value>>, title: &str) -> (u64, u64) {
         let indexed = index.and_then(|t| t.get(title).and_then(|v| v.as_str()).map(str::to_string));
         let path = match indexed {
             Some(id) => self.progress_path_for(&id, false),
             None => self.legacy_progress_path(title),
         };
-        path.map(|p| modified_ms(&p)).unwrap_or(0)
+        path.map(|p| (modified_ms(&p), fs::metadata(&p).map(|m| m.len()).unwrap_or(0))).unwrap_or((0, 0))
     }
 
     /* ------------------------------ banks ------------------------------ */
@@ -530,15 +534,22 @@ impl Store {
         }
         let title = unit_title_of(&text).unwrap_or_else(|| name.trim().to_string());
         // Pictures go to the picture folder; the bank keeps a pointer to each.
-        let text = images::externalize(&self.root, &text)?;
-        let path = self.bank_path(&title, true)?;
-        self.dir(PROGRESS_DIR, true)?;
-        check_bank_owner(&path, &title)?;
-        if path.exists() {
+        let (text, new_pictures) = images::externalize_counting(&self.root, &text)?;
+        let saved = (|| {
+            let path = self.bank_path(&title, true)?;
+            self.dir(PROGRESS_DIR, true)?;
+            check_bank_owner(&path, &title)?;
+            if path.exists() {
+                self.note_pictures_may_be_unused();
+            }
+            write_durable(&path, &text)?;
+            Ok(path)
+        })();
+        // Pictures stored for a bank that then wasn't saved aren't used.
+        if saved.is_err() && new_pictures > 0 {
             self.note_pictures_may_be_unused();
         }
-        write_durable(&path, &text)?;
-        Ok(path)
+        saved
     }
 
     pub fn list_banks(&self) -> Result<Vec<String>, String> {
@@ -585,9 +596,15 @@ impl Store {
         if names.len() > READ_MANY_LIMIT {
             return Err(format!("At most {READ_MANY_LIMIT} banks at a time."));
         }
-        Ok(names
-            .iter()
-            .map(|name| match self.read_bank(name) {
+        // Old banks can still hold their pictures (up to 40 MB each): stop
+        // at about 64 MB, and the page reads the rest one at a time.
+        let mut out = Vec::new();
+        let mut total = 0usize;
+        for name in names {
+            if total >= READ_MANY_BYTES {
+                break;
+            }
+            out.push(match self.read_bank(name) {
                 Err(e) => (String::new(), String::new(), e),
                 Ok(text) => {
                     let progress = match unit_title_of(&text).map(|t| self.read_progress(&t)) {
@@ -595,15 +612,17 @@ impl Store {
                         Some(Err(e)) => format!("DAMAGED: {}", e.trim_start_matches("DAMAGED: ")),
                         None => String::new(),
                     };
+                    total += text.len() + progress.len();
                     (text, progress, String::new())
                 }
-            })
-            .collect())
+            });
+        }
+        Ok(out)
     }
 
-    /// Cheap listing: (file name, modified ms, size, progress modified ms).
-    /// The title is read from the first 64 KB only.
-    pub fn list_bank_meta(&self) -> Result<Vec<(String, u64, u64, u64)>, String> {
+    /// Cheap listing: (file name, modified ms, size, progress modified ms,
+    /// progress size). The title is read from the first 64 KB only.
+    pub fn list_bank_meta(&self) -> Result<Vec<(String, u64, u64, u64, u64)>, String> {
         let mut out = Vec::new();
         let index = {
             let _guard = INDEX_LOCK.lock().unwrap_or_else(|e| e.into_inner());
@@ -613,8 +632,8 @@ impl Store {
             let path = self.listed_bank(&name)?;
             let size = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
             let title = read_head(&path, 64 * 1024).and_then(|head| unit_title_of(&head));
-            let progress = title.map(|t| self.progress_modified_in(index.as_ref(), &t)).unwrap_or(0);
-            out.push((name, modified_ms(&path), size, progress));
+            let (progress, progress_size) = title.map(|t| self.progress_stamp_in(index.as_ref(), &t)).unwrap_or((0, 0));
+            out.push((name, modified_ms(&path), size, progress, progress_size));
         }
         Ok(out)
     }
@@ -637,7 +656,19 @@ impl Store {
         }
         self.note_pictures_may_be_unused();
         let result = self.rename_bank_steps(name, new_title);
-        // Finished, or failed and undone: the backup isn't needed any more.
+        // Failed: each step was undone, but an undo can fail too (a full
+        // disk fails the undo as well). Put everything back from the backup
+        // as a start-up recovery would; if even that fails, keep the copies.
+        if let Err(e) = &result {
+            if self.restore_rename_backup() == Some(false) {
+                return Err(format!(
+                    "{e} Not everything could be put back, so copies of the files as they were are kept in {}.",
+                    dir.display()
+                ));
+            }
+            return result;
+        }
+        // Finished: the backup isn't needed any more.
         match (self.discard_rename_backup(), result) {
             (Ok(()), result) => result,
             (Err(e), Ok((file, text, warning))) => {
@@ -710,6 +741,21 @@ impl Store {
     /// for the page when it did.
     pub fn recover_rename(&self) -> Option<String> {
         let dir = self.root.join(RENAME_BACKUP_DIR);
+        match self.restore_rename_backup()? {
+            true => Some("A bank rename was interrupted the last time the app closed, so it was undone. Your banks, progress and checkpoints are as they were before it.".into()),
+            false => Some(format!(
+                "A bank rename was interrupted the last time the app closed, and not everything could be put back. The copies are kept in {}.",
+                dir.display()
+            )),
+        }
+    }
+
+    /// Put every file a rename changed back from rename-backup/. None when
+    /// there's no usable backup; Some(true) when all of it was put back (and
+    /// the backup removed); Some(false) when something couldn't be, and the
+    /// backup is kept.
+    fn restore_rename_backup(&self) -> Option<bool> {
+        let dir = self.root.join(RENAME_BACKUP_DIR);
         if fs::symlink_metadata(&dir).is_err() {
             return None;
         }
@@ -750,14 +796,9 @@ impl Store {
             }
         }
         if ok {
-            let _ = fs::remove_dir_all(&dir);
-            Some("A bank rename was interrupted the last time the app closed, so it was undone. Your banks, progress and checkpoints are as they were before it.".into())
-        } else {
-            Some(format!(
-                "A bank rename was interrupted the last time the app closed, and not everything could be put back. The copies are kept in {}.",
-                dir.display()
-            ))
+            let _ = self.discard_rename_backup();
         }
+        Some(ok)
     }
 
     /// Checkpoints made from a bank: by its ID, or by its title for older ones.
@@ -977,15 +1018,22 @@ impl Store {
     /// Other bank files (by file name) whose unit_title is `title`. They
     /// share one progress file, since progress follows the title.
     pub fn banks_titled(&self, title: &str, except: &str) -> Vec<String> {
-        self.list_banks()
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|n| n != except)
-            .filter(|n| {
-                let head = self.listed_bank(n).ok().and_then(|p| read_head(&p, 64 * 1024));
-                head.and_then(|h| unit_title_of(&h)).as_deref() == Some(title)
-            })
-            .collect()
+        self.banks_maybe_titled(title, except).0
+    }
+
+    /// (files with this title, files whose title couldn't be read). Deleting
+    /// treats the second kind as possibly sharing the progress.
+    fn banks_maybe_titled(&self, title: &str, except: &str) -> (Vec<String>, Vec<String>) {
+        let (mut same, mut unknown) = (Vec::new(), Vec::new());
+        let Ok(names) = self.list_banks() else { return (same, vec!["the banks folder".into()]) };
+        for n in names.into_iter().filter(|n| n != except) {
+            match self.listed_bank(&n).ok().and_then(|p| read_head(&p, 64 * 1024)).map(|h| unit_title_of(&h)) {
+                Some(Some(t)) if t == title => same.push(n),
+                Some(_) => {}
+                None => unknown.push(n),
+            }
+        }
+        (same, unknown)
     }
 
     /// Delete a bank file, and its progress unless another bank file has the
@@ -1006,8 +1054,12 @@ impl Store {
                 Ok(_) => String::new(),
             }));
         };
-        if let Some(other) = self.banks_titled(&title, name).first() {
+        let (same, unknown) = self.banks_maybe_titled(&title, name);
+        if let Some(other) = same.first() {
             return Ok((true, format!("Its progress was kept, because {other} has the same title and uses it too.")));
+        }
+        if let Some(other) = unknown.first() {
+            return Ok((true, format!("Its progress was kept, because {other} couldn't be read and might use it too.")));
         }
         Ok((false, self.delete_progress_of(&title)))
     }
@@ -1063,9 +1115,15 @@ impl Store {
         // checkpoint doesn't repeat them.
         let unit_text = data.get("unitText").and_then(|t| t.as_str()).unwrap_or("").to_string();
         if unit_text.contains(images::IMAGE_SECTION) {
-            data["unitText"] = Value::String(images::externalize(&self.root, &unit_text)?);
-            let json = serde_json::to_string(&data).map_err(|e| e.to_string())?;
-            return write_durable(&self.checkpoint_path(id, true)?, &json);
+            let (text, new_pictures) = images::externalize_counting(&self.root, &unit_text)?;
+            data["unitText"] = Value::String(text);
+            let saved = serde_json::to_string(&data)
+                .map_err(|e| e.to_string())
+                .and_then(|json| write_durable(&self.checkpoint_path(id, true)?, &json));
+            if saved.is_err() && new_pictures > 0 {
+                self.note_pictures_may_be_unused();
+            }
+            return saved;
         }
         write_durable(&self.checkpoint_path(id, true)?, json)
     }
@@ -1116,9 +1174,12 @@ impl Store {
                 Err(_) => return 0,
             }
         }
-        let removed = images::collect_garbage(&self.root, texts.iter().map(|t| t.as_str()));
-        // Checked against everything: done until the next removal.
-        let _ = fs::remove_file(&mark);
+        let (removed, stuck) = images::collect_garbage(&self.root, texts.iter().map(|t| t.as_str()));
+        // Checked against everything: done until the next removal (unless a
+        // picture couldn't be removed, say one held open on Windows).
+        if stuck == 0 {
+            let _ = fs::remove_file(&mark);
+        }
         removed
     }
 
@@ -1126,8 +1187,9 @@ impl Store {
     /// may stop being used: look again at the next start. Written first, so
     /// a crash halfway still leaves it.
     fn note_pictures_may_be_unused(&self) {
+        // Durable, so a power cut right after a delete can't lose it.
         if self.root.join(images::IMAGES_DIR).is_dir() {
-            let _ = fs::write(self.root.join(PICTURE_CHECK_MARK), "");
+            let _ = write_durable(&self.root.join(PICTURE_CHECK_MARK), "");
         }
     }
 
@@ -1446,6 +1508,37 @@ mod tests {
         assert!(mark.exists());
         assert_eq!(s.collect_images(), 2);
         assert!(!mark.exists() && !stray.exists());
+        fs::remove_dir_all(s.root()).unwrap();
+    }
+
+    // Final review: a rename that fails partway with its undo also failing
+    // is put back from its backup straight away, not left half done.
+    #[test]
+    fn a_failed_rename_is_put_back_from_its_backup() {
+        for step in 1..=3u8 {
+            let s = temp_store(&format!("failed{step}"));
+            s.save_bank("x", &bank("Cells")).unwrap();
+            s.write_progress("Cells", r#"{"completed":["k1:abc"]}"#).unwrap();
+            let bank_before = fs::read_to_string(s.bank_path("Cells", false).unwrap()).unwrap();
+            let index_before = fs::read_to_string(s.root().join(INDEX_FILE)).unwrap();
+            // The hook stops after a step without undoing it, like an undo that failed.
+            CRASH_AFTER.with(|c| c.set(step));
+            assert!(s.rename_bank("Cells.txt", "Organs").is_err());
+            CRASH_AFTER.with(|c| c.set(0));
+            assert_eq!(fs::read_to_string(s.bank_path("Cells", false).unwrap()).unwrap(), bank_before, "step {step}");
+            assert_eq!(fs::read_to_string(s.root().join(INDEX_FILE)).unwrap(), index_before, "step {step}");
+            assert!(s.read_progress("Cells").unwrap().contains("k1:abc"), "step {step}");
+            assert!(!s.bank_path("Organs", false).unwrap().exists(), "step {step}");
+            assert!(!s.root().join(RENAME_BACKUP_DIR).exists(), "step {step}: put back, so the backup is gone");
+            fs::remove_dir_all(s.root()).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_lock_file_that_cant_be_opened_doesnt_block_the_app() {
+        let s = temp_store("lock-blocked");
+        fs::create_dir_all(s.root().join(LOCK_FILE)).unwrap(); // a folder where the file goes
+        assert!(lock_data_folder(s.root()).unwrap().is_none());
         fs::remove_dir_all(s.root()).unwrap();
     }
 

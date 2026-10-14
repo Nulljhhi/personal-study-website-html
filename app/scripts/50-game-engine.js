@@ -21,8 +21,12 @@
         var d = Math.min(GAME_SUBSTEP, total);
         total -= d;
         gameTickStep(d);
-        // A wait finished (the next question, say): the rest of a long
-        // frame belongs to the time before it, not to the new question.
+        // Waits run after the step, so clocks and timers have had this
+        // step's time first. One that finishes (the next question, say)
+        // ends the frame: the rest of a long frame belongs to the time
+        // before it, not to the new question. Waits stand still with
+        // everything else while a minigame is up.
+        if (game === g && !g.over && !g.paused && !g.minigame) tickGameWaits(d);
         if (g.waitFired) { g.waitFired = false; break; }
       }
     } finally {
@@ -65,8 +69,6 @@
     var g = game;
     // A minigame holds everything else still while it's up.
     if (g.minigame) { mgTick(dt); return; }
-    tickGameWaits(dt);
-    if (game !== g || g.over || g.paused || g.waitFired) return;
     if (g.current && g.current.mgAt !== undefined && !g.locked && !g.current.mgDone && g.current.spent >= g.current.mgAt &&
         !byId("game-question-pane").classList.contains("hidden")) {
       g.current.mgDone = true;

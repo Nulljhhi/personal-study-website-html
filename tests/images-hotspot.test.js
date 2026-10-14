@@ -1,5 +1,5 @@
 // .zip banks with images, and hotspot questions, in the study modes and a game.
-const { chromium } = require('./browser');
+const { chromium, browserName } = require('./browser');
 const path = require('path');
 const fs = require('fs');
 const check = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1; } else console.log('ok', m); };
@@ -7,16 +7,27 @@ const fx = (n) => path.join(__dirname, 'fixtures', n);
 const page_url = require('url').pathToFileURL(path.join(__dirname, '..', 'src', 'index.html')).href;
 
 // Click a spot on the visible hotspot picture, in percent of its size.
-// Clicks x%, y% of the picture. Playwright measures and clicks the element
-// itself: under the page's CSS zoom, getBoundingClientRect is in zoomed
-// pixels in Chromium but unzoomed ones in WebKit, so it can't be used for
-// mouse coordinates in both.
+// Clicks x%, y% of the picture. Chromium gets a real mouse click. In
+// Playwright's WebKit, mouse positions under the page's CSS zoom don't
+// match the page's own coordinates (getBoundingClientRect is unzoomed
+// there), so the click goes to whatever is at that point, as a real click
+// would, in the page's own coordinates. Real mouse clicks were checked by
+// hand in the desktop app's WebKitGTK: picks land where clicked.
 async function clickSpot(page, sel, x, y) {
-  const img = await page.$(sel + ' .hs-pad img');
-  await img.scrollIntoViewIfNeeded();
-  const box = await img.boundingBox();
-  // force: some checks click on purpose while fog covers the picture.
-  await img.click({ position: { x: box.width * x / 100, y: box.height * y / 100 }, force: true });
+  if (browserName !== 'webkit') {
+    const box = await page.$eval(sel + ' .hs-pad img', (img) => { img.scrollIntoView({ block: 'nearest' }); const r = img.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height }; });
+    await page.mouse.click(box.l + box.w * x / 100, box.t + box.h * y / 100);
+    return;
+  }
+  await page.$eval(sel + ' .hs-pad img', (img, p) => {
+    img.scrollIntoView({ block: 'nearest' });
+    const r = img.getBoundingClientRect();
+    const cx = r.left + r.width * p.x / 100, cy = r.top + r.height * p.y / 100;
+    const target = document.elementFromPoint(cx, cy) || img;
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+      target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 }));
+    }
+  }, { x, y });
 }
 
 (async () => {

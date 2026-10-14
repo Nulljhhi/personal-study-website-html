@@ -54,9 +54,16 @@ fn damaged() -> String {
 /// The text with every inline picture moved into images/. Text without a
 /// picture section comes back as it was.
 pub fn externalize(root: &Path, text: &str) -> Result<String, String> {
+    externalize_counting(root, text).map(|(t, _)| t)
+}
+
+/// externalize, also saying how many pictures it newly wrote (they're
+/// unused until the bank or checkpoint holding them is saved).
+pub fn externalize_counting(root: &Path, text: &str) -> Result<(String, usize), String> {
+    let mut written = 0;
     let lines: Vec<&str> = text.split('\n').collect();
     let Some(at) = lines.iter().position(|l| l.trim_end_matches('\r').trim() == IMAGE_SECTION) else {
-        return Ok(text.to_string());
+        return Ok((text.to_string(), 0));
     };
     let dir = root.join(IMAGES_DIR);
     let mut out: Vec<String> = lines[..=at].iter().map(|l| l.to_string()).collect();
@@ -91,10 +98,11 @@ pub fn externalize(root: &Path, text: &str) -> Result<String, String> {
         if !path.is_file() {
             fs::create_dir_all(&dir).map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
             write_durable(&path, &bytes)?;
+            written += 1;
         }
         out.push(format!("{head}: asset:{name}"));
     }
-    Ok(out.join("\n"))
+    Ok((out.join("\n"), written))
 }
 
 /// The bytes of a stored picture.
@@ -130,17 +138,18 @@ pub fn referenced<'a>(texts: impl IntoIterator<Item = &'a str>) -> HashSet<Strin
 
 /// Remove stored pictures that no bank or checkpoint uses. `texts` must be
 /// every bank and checkpoint; the caller skips this if any couldn't be read.
-pub fn collect_garbage<'a>(root: &Path, texts: impl IntoIterator<Item = &'a str>) -> usize {
+/// Returns (removed, unused ones that couldn't be removed).
+pub fn collect_garbage<'a>(root: &Path, texts: impl IntoIterator<Item = &'a str>) -> (usize, usize) {
     let keep = referenced(texts);
-    let Ok(entries) = fs::read_dir(root.join(IMAGES_DIR)) else { return 0 };
-    let mut removed = 0;
+    let Ok(entries) = fs::read_dir(root.join(IMAGES_DIR)) else { return (0, 0) };
+    let (mut removed, mut stuck) = (0, 0);
     for path in entries.filter_map(|e| e.ok()).map(|e| e.path()).collect::<Vec<PathBuf>>() {
         let Some(name) = path.file_name().map(|n| n.to_string_lossy().into_owned()) else { continue };
-        if valid_name(&name) && !keep.contains(&name) && fs::remove_file(&path).is_ok() {
-            removed += 1;
+        if valid_name(&name) && !keep.contains(&name) {
+            if fs::remove_file(&path).is_ok() { removed += 1 } else { stuck += 1 }
         }
     }
-    removed
+    (removed, stuck)
 }
 
 #[cfg(test)]
@@ -177,8 +186,8 @@ mod tests {
         let missing = out.replace(&hash, &"0".repeat(64));
         assert!(externalize(&root, &missing).unwrap_err().contains("missing"));
         // Unused pictures go; used ones stay.
-        assert_eq!(collect_garbage(&root, [out.as_str()]), 0);
-        assert_eq!(collect_garbage(&root, ["unit_title: B"]), 1);
+        assert_eq!(collect_garbage(&root, [out.as_str()]), (0, 0));
+        assert_eq!(collect_garbage(&root, ["unit_title: B"]), (1, 0));
         assert!(read(&root, &format!("{hash}.png")).is_err());
         fs::remove_dir_all(&root).unwrap();
     }

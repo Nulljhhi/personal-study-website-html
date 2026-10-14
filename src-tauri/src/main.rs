@@ -269,7 +269,7 @@ async fn read_banks(app: AppHandle, names: Vec<String>) -> Result<Vec<(String, S
 }
 
 #[tauri::command]
-async fn list_bank_meta(app: AppHandle) -> Result<Vec<(String, u64, u64, u64)>, String> {
+async fn list_bank_meta(app: AppHandle) -> Result<Vec<(String, u64, u64, u64, u64)>, String> {
     with_store(&app, move |s| s.list_bank_meta()).await
 }
 

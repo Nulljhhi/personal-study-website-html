@@ -2645,12 +2645,12 @@
     "## Saved folder (desktop app)",
     "",
     "- The desktop app opens fullscreen. Press **F11** to switch to a normal window you can resize; the layout scales to fit. Press **Esc** to cancel a confirmation dialog.",
-    "- In the desktop app, everything is saved under `~/Documents/StudyWebsite`: question banks in `banks/` (named after their unit titles) and each bank's completed questions and game progress in `progress/`, under an ID that stays the same when you rename the bank. `index.json` remembers which ID belongs to which title.",
+    "- In the desktop app, everything is saved under `~/Documents/StudyWebsite`: question banks in `banks/` (named after their unit titles) and each bank's completed questions and game progress in `progress/`, under an ID that stays the same when you rename the bank. `index.json` remembers which ID belongs to which title. Saved quiz and exam sessions (**Save progress**) go in `checkpoints/`, and pictures in `images/`.",
     "- After loading a unit, press **Save to folder** on the Home screen to copy it into `banks/`. The folders are created automatically the first time.",
     "- Press **Open saved bank** on the landing screen to see every saved bank as a tile, in title order (\"Week 2\" comes before \"Week 10\"). Click one to study it without dragging the file in again; its completed questions load with it. With more than a screenful of banks, type in **Filter by title** to find one. The list remembers each bank's summary between sessions and reads only banks that changed, so it stays quick with years of banks.",
     "- Each bank tile has **Rename**, which changes the bank's unit title (and its file name, completed questions, and checkpoints to match), and **Delete**, which removes the bank and its completed-question progress. Checkpoints made from a deleted bank are kept.",
     "- Completed questions are written to disk as soon as you reach the review page, so closing the app never loses them.",
-    "- Pictures from .zip banks are kept once each in `images/`, named by their content, and saved banks and checkpoints point to them, so a picture used by a bank and several checkpoints is stored once. Pictures nothing uses any more are removed the next time the app starts. Leave the `images/` folder in place: a saved bank needs it.",
+    "- Pictures from .zip banks are kept once each in `images/`, named by their content, and saved banks and checkpoints point to them, so a picture used by a bank and several checkpoints is stored once. Pictures nothing uses any more are removed the next time the app starts after a bank or checkpoint was deleted, renamed or replaced (the `.check-pictures` file marks that one is due). Leave the `images/` folder in place: a saved bank needs it.",
     "- Only one copy of the app runs at a time, so two windows can't save over each other. Starting it again brings the open window forward and explains why the new copy closed. As a second safeguard the running copy holds a lock on the folder (the `.lock` file): a copy that somehow starts anyway, for example from another user account, says so and doesn't read or save anything.",
     "- Renaming a bank first copies every file it changes into `rename-backup/`. If the app stops partway through (a crash or a power cut), the next start puts those files back as they were before the rename and tells you; otherwise the copies are removed as soon as the rename is done.",
     "- Opened as a plain web page in a browser, the folder buttons are disabled and progress is kept in that browser's own storage. If the browser blocks or fills that storage (private windows often do), the app says progress is kept for this session only.",
@@ -2673,7 +2673,7 @@
     "",
     "- The .zip holds exactly **one unit file** (.txt), and the pictures, usually in a folder next to it.",
     "- Name each picture **Img.Q** followed by the question's number and the extension, for example `Img.Q1.png` for the first question in the file and `Img.Q12.jpg` for the twelfth. Questions are numbered in the order they appear in the unit file, starting at 1.",
-    "- Pictures can be .png, .jpg, .gif, .webp, .svg or .bmp, up to 8 MB each and 25 MB in all. A question without a picture is fine; most questions don't need one.",
+    "- Pictures can be .png, .jpg, .gif, .webp, .svg or .bmp, up to 8 MB each and 25 MB in all, and at most 12,000 pixels on a side (40 megapixels). An .svg needs its own width and height. The whole .zip can be up to 40 MB. A question without a picture is fine; most questions don't need one.",
     "- On Windows, select the unit file and the picture folder, right-click and choose **Send to → Compressed (zipped) folder**. On a Mac, select them, right-click and choose **Compress**. On Linux, use your file manager's **Compress** option.",
     "",
     "```text",
@@ -3341,7 +3341,8 @@
       if (!bankInfoCache.size) loadBankSummaries();
       var names = new Set(metas.map(function (m) { return m[0]; }));
       bankInfoCache.forEach(function (_, k) { if (!names.has(k)) bankInfoCache.delete(k); });
-      var stampOf = function (m) { return m[1] + ":" + m[2] + ":" + m[3]; };
+      // Sizes too: some drives keep file times to the second or two.
+      var stampOf = function (m) { return m[1] + ":" + m[2] + ":" + m[3] + ":" + (m[4] || 0); };
       var out = new Array(metas.length), missing = [];
       metas.forEach(function (m, i) {
         var hit = bankInfoCache.get(m[0]);
@@ -3397,7 +3398,9 @@
     if (count) count.textContent = phrase ? shown + " of " + total + " banks" : total + (total === 1 ? " bank" : " banks");
   }
 
+  var banksRender = 0; // only the newest list render draws
   function renderBanks() {
+    var token = ++banksRender;
     var grid = byId("bank-grid");
     var errorEl = byId("banks-error");
     var status = byId("banks-status");
@@ -3409,14 +3412,17 @@
       status.textContent = text;
       status.classList.toggle("hidden", !text);
     };
-    listBankInfo(function (done, total) { showStatus("Reading saved banks… " + done + " of " + total); })
+    listBankInfo(function (done, total) { if (token === banksRender) showStatus("Reading saved banks… " + done + " of " + total); })
       .then(function (items) {
+        if (token !== banksRender) return;
         showStatus("");
         grid.textContent = "";
         items.sort(function (x, y) { return compareTitles(x.title, y.title); });
         var tools = byId("bank-tools");
         // A filter is worth having once the list is longer than a screen.
         if (tools) tools.classList.toggle("hidden", items.length <= 12);
+        // No filter box, no filter: a word typed earlier mustn't hide banks.
+        if (items.length <= 12 && byId("bank-filter")) byId("bank-filter").value = "";
         if (!items.length) {
           var empty = document.createElement("p");
           empty.className = "checkpoints-empty";
@@ -3441,7 +3447,7 @@
         grid.appendChild(frag);
         applyBankFilter();
       })
-      .catch(function (err) { showStatus(""); notifyError(err.message); });
+      .catch(function (err) { if (token !== banksRender) return; showStatus(""); notifyError(err.message); });
   }
 
   function makeTileButton(label, ariaLabel, onClick) {
@@ -3568,6 +3574,15 @@
       if (!state.unit || state.unit.unitTitle !== item.title) return false;
       return state.bankPath ? openBankIsFile(item.name) : !sameTitle;
     };
+    // Opened from elsewhere (no folder path): follow only if it holds the
+    // same questions as the renamed file, so its own content isn't swapped.
+    var sameQuestions = function (text) {
+      if (state.bankPath) return true;
+      try {
+        var keys = function (u) { return u.questions.map(completedKey).join("|"); };
+        return keys(parseUnitFile(text)) === keys(state.unit);
+      } catch (err) { return false; }
+    };
     var release;
     if (isOpen) state.progressHold = new Promise(function (r) { release = r; });
     var op = trackOperation();
@@ -3581,7 +3596,7 @@
         // earlier this session: its progress saves again.
         unmarkUnitDeleted({ unitTitle: newTitle });
         // If this bank is the one currently open, follow the rename.
-        if (isThisFile()) {
+        if (isThisFile() && sameQuestions(result[1])) {
           try {
             state.unit = parseUnitFile(result[1]);
             state.unitText = result[1];
@@ -6369,24 +6384,30 @@
   /* Measure pictures a few at a time (all at once could decode dozens of
      big pictures together; one at a time is slow). */
   function measureAll(list, limit) {
-    var i = 0, out = {};
+    var i = 0, out = {}, made = [], failed = false;
     var next = function () {
-      if (i >= list.length) return Promise.resolve();
+      // One picture failed: the others stop, and nothing more is made.
+      if (failed || i >= list.length) return Promise.resolve();
       var im = list[i++], src = "data:" + im.type + ";base64," + im.b64;
       // From the raw bytes when there are any: one Blob, used to measure the
       // picture now and to show it later (see seedImageUrls).
       var blobUrl = im.bytes && typeof Blob === "function" ? URL.createObjectURL(new Blob([im.bytes], { type: im.type })) : null;
+      if (blobUrl) made.push(blobUrl);
       return measureImage(blobUrl || src, im.name).then(function (dim) {
         out[im.n] = { name: im.name, src: src, id: im.id, width: dim.width, height: dim.height, blobUrl: blobUrl };
         return next();
-      }, function (err) {
-        if (blobUrl) URL.revokeObjectURL(blobUrl);
-        throw err;
       });
     };
     var runners = [];
     for (var k = 0; k < Math.min(limit, list.length); k++) runners.push(next());
-    return Promise.all(runners).then(function () { return out; });
+    var settled = runners.map(function (r) { return r.then(function () { return null; }, function (err) { failed = true; return err; }); });
+    return Promise.all(settled).then(function (errs) {
+      var err = errs.filter(Boolean)[0];
+      if (!err) return out;
+      // The .zip is refused: let go of every picture made for it.
+      made.forEach(function (u) { URL.revokeObjectURL(u); });
+      throw err;
+    });
   }
 
   /* A zip's bytes → the bank's text with its images attached. */
@@ -6633,8 +6654,11 @@
         }
         var cur = api.cursor;
         api.cursor = null;
-        if (said) said.textContent = "Picked " + Math.round(cur.x) + "% across, " + Math.round(cur.y) + "% down.";
         choose(cur.x, cur.y);
+        // A game can refuse a pick (while fog hides the picture, say).
+        if (said) said.textContent = api.pick
+          ? "Picked " + Math.round(cur.x) + "% across, " + Math.round(cur.y) + "% down."
+          : "That pick wasn't taken. Wait until the picture can be seen.";
       }
     });
     if (api.pick) api.setPick(api.pick);
@@ -14938,8 +14962,12 @@
         var d = Math.min(GAME_SUBSTEP, total);
         total -= d;
         gameTickStep(d);
-        // A wait finished (the next question, say): the rest of a long
-        // frame belongs to the time before it, not to the new question.
+        // Waits run after the step, so clocks and timers have had this
+        // step's time first. One that finishes (the next question, say)
+        // ends the frame: the rest of a long frame belongs to the time
+        // before it, not to the new question. Waits stand still with
+        // everything else while a minigame is up.
+        if (game === g && !g.over && !g.paused && !g.minigame) tickGameWaits(d);
         if (g.waitFired) { g.waitFired = false; break; }
       }
     } finally {
@@ -14982,8 +15010,6 @@
     var g = game;
     // A minigame holds everything else still while it's up.
     if (g.minigame) { mgTick(dt); return; }
-    tickGameWaits(dt);
-    if (game !== g || g.over || g.paused || g.waitFired) return;
     if (g.current && g.current.mgAt !== undefined && !g.locked && !g.current.mgDone && g.current.spent >= g.current.mgAt &&
         !byId("game-question-pane").classList.contains("hidden")) {
       g.current.mgDone = true;

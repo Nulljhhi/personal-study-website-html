@@ -37,8 +37,8 @@ If you'd rather not install anything, open `src/index.html` in any browser. Ever
 ### Where the code lives
 
 - `app/` holds the page's source, split into readable pieces: `app/index.html` (markup), `app/styles/*.css`, and `app/scripts/*.js` (numbered so they run in order: the study modes first, then shared game systems, one file per game, the bots and rivals, the game engine, and start-up wiring).
-- `src/index.html` is built from those with `node tools/build.js` and is what the app runs. Edit the files in `app/`, rebuild, and commit both; `node tools/build.js --check` (also run by the release workflow) fails if they don't match.
-- `src-tauri/src/` is the desktop side: `store.rs` (banks, bank IDs, progress, checkpoints, rename and delete), `files.rs` (safe names and writes), `titles.rs`, `drops.rs`, and `main.rs` (the commands the page calls).
+- `src/index.html` is built from those with `node tools/build.js` and is what the app runs. Edit the files in `app/`, rebuild, and commit both; `node tools/build.js --check` (also run by the CI and release workflows) fails if they don't match.
+- `src-tauri/src/` is the desktop side: `store.rs` (banks, bank IDs, progress, checkpoints, rename and delete, the folder lock), `images.rs` (the picture folder), `files.rs` (safe names and writes), `titles.rs`, `drops.rs`, and `main.rs` (the commands the page calls).
 
 ### Publishing a new version
 
@@ -68,7 +68,7 @@ The tag must match the version in `tauri.conf.json` and `Cargo.toml`, with a `v`
 
 - The app opens fullscreen and is designed for 1920×1080. Press **F11** to switch to a normal, resizable window; the layout scales to fit, and narrow windows get a stacked layout. Close it with **Quit** on the start screen (Alt+F4 also works); both wait for any save in progress.
 - Blank or white window on Linux: start it with `WEBKIT_DISABLE_DMABUF_RENDERER=1 study-website`.
-- The HTML is built into the app, so after editing `src/index.html` you have to rebuild.
+- The page is built into the app: after editing anything in `app/`, run `node tools/build.js` and then rebuild the app.
 
 ## Tests
 

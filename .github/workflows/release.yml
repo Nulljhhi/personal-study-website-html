@@ -2,7 +2,8 @@
 # downloads to a GitHub Release.
 #
 # To publish a new version:
-#   1. Bump "version" in src-tauri/tauri.conf.json (e.g. 1.0.0 -> 1.1.0)
+#   1. Bump "version" in src-tauri/tauri.conf.json and src-tauri/Cargo.toml
+#      (e.g. 1.0.0 -> 1.1.0); the checks below fail if they differ
 #   2. git commit -am "Release v1.1.0"
 #   3. git tag v1.1.0 && git push && git push --tags
 # The builds take roughly 10-20 minutes; watch them in the Actions tab.
@@ -24,8 +25,10 @@ jobs:
   # Everything below must pass before anything is built or published.
   checks:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Versions agree (tag, tauri.conf.json, Cargo.toml)
         run: |
@@ -37,7 +40,7 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME doesn't match version v$conf"; exit 1
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22.22.2"
 
@@ -50,6 +53,10 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - uses: dtolnay/rust-toolchain@1.95.0
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
 
       - name: Rust tests
         working-directory: src-tauri
@@ -71,16 +78,19 @@ jobs:
   # A hidden draft release that the builds upload into.
   create-release:
     needs: checks
+    # Only a pushed version tag publishes. A manual run (Actions tab) runs
+    # the checks and stops here, so it can't make a release from a branch.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
     permissions:
       contents: write
     outputs:
       release_id: ${{ steps.draft.outputs.result }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - id: draft
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { version } = require(`${process.env.GITHUB_WORKSPACE}/src-tauri/tauri.conf.json`);
@@ -123,9 +133,9 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22.22.2"
 
@@ -164,7 +174,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         env:
           RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
         with:

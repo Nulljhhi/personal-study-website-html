@@ -22,7 +22,7 @@ const bank = (t) => `unit_title: ${t}\n\nquestion: Q?\nanswer: A\nmedium_fake_an
     window.__banks = banks;
     window.__TAURI__ = { core: { invoke: async (cmd, a) => {
       window.__calls[cmd] = (window.__calls[cmd] || 0) + 1;
-      if (cmd === 'list_bank_meta') return [...banks.keys()].map(k => [k, 1, 1, k === 'Week 2 day 1.txt' ? (window.__touched || 0) : 0]);
+      if (cmd === 'list_bank_meta') return [...banks.keys()].map(k => [k, 1, 1, k === 'Week 2 day 1.txt' ? (window.__touched || 0) : 0, 0]);
       if (cmd === 'read_banks') { await new Promise(r => setTimeout(r, 30)); return a.names.map(x => [banks.get(x), '', '']); }
       if (cmd === 'read_bank') return banks.get(a.name);
       return '';
@@ -36,7 +36,8 @@ const bank = (t) => `unit_title: ${t}\n\nquestion: Q?\nanswer: A\nmedium_fake_an
   };
 
   await open();
-  await page.waitForTimeout(40);
+  // The message shows while chunks are still being read (each takes 30 ms).
+  await page.waitForFunction(() => /Reading saved banks/.test(document.getElementById('banks-status').textContent), null, { polling: 5, timeout: 5000 });
   const status = await page.textContent('#banks-status');
   check(/Reading saved banks… \d+ of 300/.test(status), 'progress is shown while banks are read: ' + status);
   await page.waitForFunction(() => document.querySelectorAll('#bank-grid .checkpoint-tile').length === 300);

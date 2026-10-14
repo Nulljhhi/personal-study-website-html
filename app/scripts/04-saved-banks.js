@@ -174,7 +174,8 @@
       if (!bankInfoCache.size) loadBankSummaries();
       var names = new Set(metas.map(function (m) { return m[0]; }));
       bankInfoCache.forEach(function (_, k) { if (!names.has(k)) bankInfoCache.delete(k); });
-      var stampOf = function (m) { return m[1] + ":" + m[2] + ":" + m[3]; };
+      // Sizes too: some drives keep file times to the second or two.
+      var stampOf = function (m) { return m[1] + ":" + m[2] + ":" + m[3] + ":" + (m[4] || 0); };
       var out = new Array(metas.length), missing = [];
       metas.forEach(function (m, i) {
         var hit = bankInfoCache.get(m[0]);
@@ -230,7 +231,9 @@
     if (count) count.textContent = phrase ? shown + " of " + total + " banks" : total + (total === 1 ? " bank" : " banks");
   }
 
+  var banksRender = 0; // only the newest list render draws
   function renderBanks() {
+    var token = ++banksRender;
     var grid = byId("bank-grid");
     var errorEl = byId("banks-error");
     var status = byId("banks-status");
@@ -242,14 +245,17 @@
       status.textContent = text;
       status.classList.toggle("hidden", !text);
     };
-    listBankInfo(function (done, total) { showStatus("Reading saved banks… " + done + " of " + total); })
+    listBankInfo(function (done, total) { if (token === banksRender) showStatus("Reading saved banks… " + done + " of " + total); })
       .then(function (items) {
+        if (token !== banksRender) return;
         showStatus("");
         grid.textContent = "";
         items.sort(function (x, y) { return compareTitles(x.title, y.title); });
         var tools = byId("bank-tools");
         // A filter is worth having once the list is longer than a screen.
         if (tools) tools.classList.toggle("hidden", items.length <= 12);
+        // No filter box, no filter: a word typed earlier mustn't hide banks.
+        if (items.length <= 12 && byId("bank-filter")) byId("bank-filter").value = "";
         if (!items.length) {
           var empty = document.createElement("p");
           empty.className = "checkpoints-empty";
@@ -274,7 +280,7 @@
         grid.appendChild(frag);
         applyBankFilter();
       })
-      .catch(function (err) { showStatus(""); notifyError(err.message); });
+      .catch(function (err) { if (token !== banksRender) return; showStatus(""); notifyError(err.message); });
   }
 
   function makeTileButton(label, ariaLabel, onClick) {
@@ -401,6 +407,15 @@
       if (!state.unit || state.unit.unitTitle !== item.title) return false;
       return state.bankPath ? openBankIsFile(item.name) : !sameTitle;
     };
+    // Opened from elsewhere (no folder path): follow only if it holds the
+    // same questions as the renamed file, so its own content isn't swapped.
+    var sameQuestions = function (text) {
+      if (state.bankPath) return true;
+      try {
+        var keys = function (u) { return u.questions.map(completedKey).join("|"); };
+        return keys(parseUnitFile(text)) === keys(state.unit);
+      } catch (err) { return false; }
+    };
     var release;
     if (isOpen) state.progressHold = new Promise(function (r) { release = r; });
     var op = trackOperation();
@@ -414,7 +429,7 @@
         // earlier this session: its progress saves again.
         unmarkUnitDeleted({ unitTitle: newTitle });
         // If this bank is the one currently open, follow the rename.
-        if (isThisFile()) {
+        if (isThisFile() && sameQuestions(result[1])) {
           try {
             state.unit = parseUnitFile(result[1]);
             state.unitText = result[1];
