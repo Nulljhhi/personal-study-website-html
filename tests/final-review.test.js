@@ -101,7 +101,11 @@ const block = (q, a) => `question: ${q}\nanswer: ${a}\nmedium_fake_answer_1: B\n
   for (let i = 0; i < 6; i++) { await page.keyboard.press('1'); await page.clock.runFor(1500); ran += 1500; }
   const g = await page.evaluate(() => { const x = StudyApp.__test.game(); return { left: x.blitzLeft, wrong: x.answered - x.correct, over: x.over }; });
   const lost = left0 - g.left - 3000 * g.wrong;
-  check(!g.over && Math.abs(lost - ran) <= 50, 'the match clock counts all of the time: ' + lost + ' of ' + ran + ' ms');
+  // A question change ends its frame (the rest of the frame was the old
+  // question's), so each of the 6 answers may drop up to one ~16 ms frame,
+  // and each reading may land a frame early or late: about 130 ms of leeway.
+  // The bug this guards against lost up to 250 ms per answer (1,500 ms here).
+  check(!g.over && Math.abs(lost - ran) <= 130, 'the match clock counts all of the time, to within a frame per answer: ' + lost + ' of ' + ran + ' ms');
   await page.close();
 
   await b.close();
