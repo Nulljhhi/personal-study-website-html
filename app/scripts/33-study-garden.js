@@ -290,6 +290,9 @@
     if (!state.unit) return;
     showScreen("garden");
     byId("garden-plots").textContent = "Loading your garden…";
+    // Until this bank's garden has loaded, a change would go to a profile
+    // that's about to be replaced: the controls wait for it (renderGarden).
+    ["garden-water-btn", "garden-seed-btn", "garden-seed-size", "garden-shop-btn"].forEach(function (id) { byId(id).disabled = true; });
     state.completedReady.then(function () {
       if (state.screen !== "garden") return;
       var fresh = gardenCheckVisitors();
@@ -316,6 +319,8 @@
     seeds.disabled = !unplanted;
     seeds.textContent = unplanted ? "Plant " + Math.min(p.seedSize, unplanted) + " new seeds" : "Every seed is planted";
     byId("garden-seed-size").value = String(p.seedSize);
+    byId("garden-seed-size").disabled = false;
+    byId("garden-shop-btn").disabled = false;
     var box = byId("garden-plots");
     box.textContent = "";
     var today = gardenDay();

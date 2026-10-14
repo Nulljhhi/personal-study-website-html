@@ -34,6 +34,25 @@
     return cyrb53(text, 0) + cyrb53(text, 0x9e3779b9);
   }
 
+  /* A string's size in UTF-8, as it's stored on disk: the size limits are
+     in bytes, and a character can take up to four. Counted, not encoded,
+     so a big bank isn't copied to measure it. */
+  function utf8Bytes(text) {
+    var n = text.length;
+    for (var i = 0; i < text.length; i++) {
+      var c = text.charCodeAt(i);
+      if (c < 0x80) continue;
+      if (c < 0x800) { n += 1; continue; }
+      // A surrogate pair is 2 units and 4 bytes; any other is 3 bytes.
+      if (c >= 0xd800 && c < 0xdc00 && i + 1 < text.length) {
+        var d = text.charCodeAt(i + 1);
+        if (d >= 0xdc00 && d < 0xe000) { n += 2; i++; continue; }
+      }
+      n += 2;
+    }
+    return n;
+  }
+
   function seededShuffle(items, seed) {
     var copy = items.slice();
     var rng = mulberry32(seed);

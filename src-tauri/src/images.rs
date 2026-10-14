@@ -90,7 +90,15 @@ pub fn externalize_counting(root: &Path, text: &str) -> Result<(String, usize), 
         let rest = src.strip_prefix("data:").ok_or_else(damaged)?;
         let (mime, b64) = rest.split_once(";base64,").ok_or_else(damaged)?;
         let ext = ext_for(mime).ok_or_else(damaged)?;
+        // A picture too big to be read back (see read) is refused now,
+        // rather than stored and then missing.
+        if (b64.len() as u64) / 4 * 3 > MAX_IMAGE_BYTES + 3 {
+            return Err(format!("{} is larger than 8 MB. Make it smaller and load the .zip again.", head.split(' ').next().unwrap_or("A picture")));
+        }
         let bytes = base64::engine::general_purpose::STANDARD.decode(b64).map_err(|_| damaged())?;
+        if bytes.len() as u64 > MAX_IMAGE_BYTES {
+            return Err(format!("{} is larger than 8 MB. Make it smaller and load the .zip again.", head.split(' ').next().unwrap_or("A picture")));
+        }
         let hash = format!("{:x}", Sha256::digest(&bytes));
         let name = format!("{hash}.{ext}");
         let path = dir.join(&name);
@@ -140,7 +148,12 @@ pub fn referenced<'a>(texts: impl IntoIterator<Item = &'a str>) -> HashSet<Strin
 /// every bank and checkpoint; the caller skips this if any couldn't be read.
 /// Returns (removed, unused ones that couldn't be removed).
 pub fn collect_garbage<'a>(root: &Path, texts: impl IntoIterator<Item = &'a str>) -> (usize, usize) {
-    let keep = referenced(texts);
+    remove_unused(root, &referenced(texts))
+}
+
+/// Remove stored pictures not in `keep` (every picture named by every bank
+/// and checkpoint). Returns (removed, unused ones that couldn't be removed).
+pub fn remove_unused(root: &Path, keep: &HashSet<String>) -> (usize, usize) {
     let Ok(entries) = fs::read_dir(root.join(IMAGES_DIR)) else { return (0, 0) };
     let (mut removed, mut stuck) = (0, 0);
     for path in entries.filter_map(|e| e.ok()).map(|e| e.path()).collect::<Vec<PathBuf>>() {
@@ -161,6 +174,21 @@ mod tests {
     fn bank_with_picture() -> String {
         let b64 = base64::engine::general_purpose::STANDARD.encode(PNG);
         format!("unit_title: A\n\nquestion: Q?\nanswer: A\n\n{IMAGE_SECTION}\nImg.Q1.png 10x20 #abcdef12: data:image/png;base64,{b64}\n")
+    }
+
+    // A picture too big to read back later isn't stored.
+    #[test]
+    fn oversized_pictures_are_refused() {
+        let root = std::env::temp_dir().join(format!("sw-images-big-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let big = vec![0u8; MAX_IMAGE_BYTES as usize + 1];
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&big);
+        let text = format!("unit_title: A\n\nquestion: Q?\nanswer: A\n\n{IMAGE_SECTION}\nImg.Q1.png 10x20 #abcdef12: data:image/png;base64,{b64}\n");
+        let err = externalize(&root, &text).unwrap_err();
+        assert!(err.contains("Img.Q1.png is larger than 8 MB"), "{err}");
+        assert!(!root.join(IMAGES_DIR).exists());
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

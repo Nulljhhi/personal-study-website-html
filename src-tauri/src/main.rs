@@ -132,11 +132,35 @@ fn data_folder(app: AppHandle) -> Result<String, String> {
 /// Close the app (the window is fullscreen, so there's no title bar).
 /// Progress saved after each answer isn't synced to the disk straight away
 /// (store::write_progress); it is here, before the app closes.
+///
+/// If that fails, the app stays open and says why (the page offers to try
+/// again, or to quit anyway with `force`).
 #[tauri::command]
-async fn quit_app(app: AppHandle) {
-    // Through the store lock, so a save that's still being written finishes first.
-    let _ = with_store(&app, |s| s.sync_progress()).await;
+async fn quit_app(app: AppHandle, force: Option<bool>) -> Result<(), String> {
+    if let Err(e) = final_sync(&app).await {
+        if !force.unwrap_or(false) {
+            return Err(e);
+        }
+    }
     app.exit(0);
+    Ok(())
+}
+
+/// The same final sync, for a window closed by the desktop (Alt+F4, Cmd+Q):
+/// the page asks before letting the close go ahead.
+#[tauri::command]
+async fn finish_saves(app: AppHandle) -> Result<(), String> {
+    final_sync(&app).await
+}
+
+/// Through the store lock, so a save that's still being written finishes
+/// first. With no data folder, or another copy holding it, this copy saved
+/// nothing, so there's nothing to sync (and quitting must still work).
+async fn final_sync(app: &AppHandle) -> Result<(), String> {
+    if store(app).is_err() || matches!(DATA_LOCK.get(), Some(Err(_))) {
+        return Ok(());
+    }
+    with_store(app, |s| s.sync_progress()).await
 }
 
 /// Read a file the user dropped on the window. Native drag-and-drop gives
@@ -319,6 +343,7 @@ fn main() {
             data_folder,
             take_startup_notice,
             quit_app,
+            finish_saves,
             read_dropped_file,
             read_dropped_zip,
             save_download,
@@ -347,7 +372,11 @@ fn main() {
             if let tauri::RunEvent::Exit = event {
                 if let Ok(s) = store(app) {
                     let _guard = STORE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-                    let _ = s.sync_progress();
+                    // Nothing can be shown any more; the page already asked
+                    // (finish_saves, quit_app), so this is a last try.
+                    if let Err(e) = s.sync_progress() {
+                        eprintln!("{e}");
+                    }
                 }
             }
         });

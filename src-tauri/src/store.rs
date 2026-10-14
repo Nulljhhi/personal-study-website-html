@@ -25,7 +25,7 @@
 //! and every write checks that an existing bank belongs to the same title.
 
 use crate::images;
-use crate::files::{modified_ms, read_head, read_limited, safe_stem, sync_files, write_durable, write_safe, MAX_BANK_BYTES, MAX_JSON_BYTES};
+use crate::files::{modified_ms, read_head, read_limited, safe_stem, sync_each, write_durable, write_safe, MAX_BANK_BYTES, MAX_JSON_BYTES};
 use crate::titles::{normalize_newlines, unit_title_of, with_unit_title};
 use serde_json::{json, Map, Value};
 use std::fs;
@@ -505,12 +505,18 @@ impl Store {
 
     /// Push every progress file saved since the last call onto the disk.
     /// Called before the app quits.
+    /// Files that couldn't be synced stay listed, so the next call (a
+    /// retried quit) tries them again.
     pub fn sync_progress(&self) -> Result<(), String> {
-        let paths: Vec<PathBuf> = match UNSYNCED.lock() {
-            Ok(mut unsynced) => std::mem::take(&mut *unsynced).into_iter().collect(),
-            Err(_) => return Ok(()),
+        let paths: Vec<PathBuf> = {
+            let mut unsynced = UNSYNCED.lock().unwrap_or_else(|e| e.into_inner());
+            std::mem::take(&mut *unsynced).into_iter().collect()
         };
-        sync_files(paths.iter().map(|p| p.as_path()))
+        let (failed, err) = sync_each(paths.iter().map(|p| p.as_path()));
+        if !failed.is_empty() {
+            UNSYNCED.lock().unwrap_or_else(|e| e.into_inner()).extend(failed);
+        }
+        err.map_or(Ok(()), Err)
     }
 
     /// Last-modified time and size of this title's progress file (0, 0 if
@@ -703,7 +709,7 @@ impl Store {
             std::thread::sleep(std::time::Duration::from_millis(50 * (attempt + 1)));
         }
         last?;
-        crate::files::sync_dir(&manifest);
+        crate::files::sync_dir(&manifest)?;
         // Without its list the rest is never used; leftovers are harmless.
         let _ = fs::remove_dir_all(&dir);
         Ok(())
@@ -1148,7 +1154,9 @@ impl Store {
         if !banks_dir.is_dir() {
             return 0;
         }
-        let mut texts = Vec::new();
+        // The pictures named so far: each file is read, scanned and let go,
+        // so years of banks are never all in memory at once.
+        let mut keep = std::collections::HashSet::new();
         // Every bank and checkpoint, or nothing is removed: an entry that
         // can't be listed or read might be the one using a picture.
         let all = |dir: &Path, ext: &str| -> Option<Vec<PathBuf>> {
@@ -1170,11 +1178,11 @@ impl Store {
                 continue;
             }
             match read_limited(path, limit) {
-                Ok(t) => texts.push(t),
+                Ok(t) => keep.extend(images::referenced([t.as_str()])),
                 Err(_) => return 0,
             }
         }
-        let (removed, stuck) = images::collect_garbage(&self.root, texts.iter().map(|t| t.as_str()));
+        let (removed, stuck) = images::remove_unused(&self.root, &keep);
         // Checked against everything: done until the next removal (unless a
         // picture couldn't be removed, say one held open on Windows).
         if stuck == 0 {
@@ -1730,6 +1738,25 @@ mod tests {
     }
 
     // Report R05: answers' saves are synced when the app quits.
+    // A file that couldn't be synced stays listed, so a retried quit
+    // tries it again.
+    #[test]
+    #[cfg(unix)]
+    fn a_failed_sync_is_kept_for_the_next_try() {
+        let s = temp_store("sync-fail");
+        // A folder can't be opened for writing, so syncing it fails.
+        let path = s.root().join("not-a-file");
+        fs::create_dir_all(&path).unwrap();
+        UNSYNCED.lock().unwrap().insert(path.clone());
+        let err = s.sync_progress().unwrap_err();
+        assert!(err.contains("Could not finish saving"), "{err}");
+        assert!(UNSYNCED.lock().unwrap().contains(&path));
+        fs::remove_dir_all(&path).unwrap();
+        let _ = s.sync_progress();
+        assert!(!UNSYNCED.lock().unwrap().contains(&path));
+        fs::remove_dir_all(s.root()).unwrap();
+    }
+
     #[test]
     fn progress_saves_are_synced_on_quit() {
         let s = temp_store("sync");

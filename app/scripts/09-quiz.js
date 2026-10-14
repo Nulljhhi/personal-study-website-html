@@ -304,7 +304,7 @@
     var snapshot = {
       format: "study-website-session", version: 1,
       savedAt: new Date().toISOString(), unitTitle: state.unit ? state.unit.unitTitle : "",
-      bankId: state.bankId || undefined,
+      bankId: undefined, // filled in below, once this bank's ID is known
       answeredCount: answered, totalCount: q.order.length,
       unitText: state.unitText,
       mode: q.mode, seed: q.seed, options: q.options, poolIds: q.poolIds,
@@ -318,14 +318,24 @@
       showSeed: state.showSeed, sessionExpanded: state.sessionExpanded
     };
     if (hasDesktop) {
-      var id = q.checkpointId;
-      var json = JSON.stringify(snapshot);
-      if (json.length > MAX_JSON_BYTES) { setSessionStatus("Could not save progress: this bank and its pictures are too large for a checkpoint.", true); return; }
-      retryableWrite("checkpoint:" + id, function () { return desktopCall("save_checkpoint", { id: id, json: json }); })
-        .then(function () {
-          setSessionStatus("Progress saved (" + answered + " of " + q.order.length + " answered).");
-        })
-        .catch(function (err) { setSessionStatus("Could not save progress: " + err.message, true); });
+      var id = q.checkpointId, unit = state.unit;
+      // The bank's ID is read with its progress (an exam can be started,
+      // and saved, before that): wait for it. A checkpoint saved after
+      // another bank was opened goes without one rather than with the
+      // wrong one.
+      var saving = Promise.resolve(state.completedReady).catch(function () {}).then(function () {
+        if (state.unit === unit && state.completedFor === unit.unitTitle) snapshot.bankId = state.bankId || undefined;
+        var json = JSON.stringify(snapshot);
+        if (utf8Bytes(json) > MAX_JSON_BYTES) { setSessionStatus("Could not save progress: this bank and its pictures are too large for a checkpoint.", true); return; }
+        return retryableWrite("checkpoint:" + id, function () { return desktopCall("save_checkpoint", { id: id, json: json }); })
+          .then(function () {
+            setSessionStatus("Progress saved (" + answered + " of " + q.order.length + " answered).");
+          });
+      });
+      // A quit meanwhile waits for it too (a failure is the checkpoint's
+      // own tracked write, retried on quit).
+      trackWrite(saving.then(function () { return true; }, function () { return true; }));
+      saving.catch(function (err) { setSessionStatus("Could not save progress: " + err.message, true); });
       return;
     }
     try {
@@ -358,7 +368,10 @@
     requireValid(saved && saved.format === "study-website-session" && saved.version === 1);
     requireValid(saved.mode === "quiz" || saved.mode === "exam");
     requireValid(Number.isSafeInteger(saved.seed) && saved.seed >= 0);
+    requireValid(typeof saved.unitText === "string");
     var unit = parseUnitFile(saved.unitText);
+    // A desktop checkpoint's pictures can't be shown in a plain browser.
+    checkUnitUsableHere(unit);
     var opts = saved.options;
     requireValid(opts && Number.isInteger(opts.count) && opts.count >= 1 && opts.count <= unit.questions.length);
     requireValid(saved.mode !== "exam" || opts.count === unit.questions.length);
@@ -430,8 +443,18 @@
     return { saved: saved, unit: unit, opts: opts, poolIds: poolIds, stored: stored };
   }
 
-  function restoreQuizProgress(text, checkpointId) {
-    var v = validateSession(text);
+  /* Validates the session and its pictures, then restores it. Resolves
+     once it's open; rejects (changing nothing) if it can't be used, or if
+     isCurrent() says the person has opened something else meanwhile. */
+  function restoreQuizProgress(text, checkpointId, isCurrent) {
+    var v;
+    try { v = validateSession(text); } catch (err) { return Promise.reject(err); }
+    return checkBankImages(v.unit.images).then(function () {
+      if (isCurrent && !isCurrent()) return;
+      applySession(v, checkpointId);
+    });
+  }
+  function applySession(v, checkpointId) {
     var saved = v.saved, unit = v.unit, opts = v.opts, poolIds = v.poolIds, stored = v.stored;
     // Validate fully before replacing the current unit or attempt.
     if (!state.unit || state.unit.unitTitle !== unit.unitTitle) {
@@ -484,8 +507,11 @@
     function fail(message) { if (isLatestImport(token)) notifyError(message); }
     reader.onload = function () {
       if (!isLatestImport(token)) return;
-      try { restoreQuizProgress(String(reader.result)); }
-      catch (err) { fail("Could not resume. Choose a valid JSON file downloaded with Save progress."); }
+      restoreQuizProgress(String(reader.result), null, function () { return isLatestImport(token); }).catch(function (err) {
+        // Picture problems and the desktop-pictures refusal say what's wrong;
+        // anything else is a file that isn't a valid saved session.
+        fail(err && (err.explained || err.picture) ? err.message : "Could not resume. Choose a valid JSON file downloaded with Save progress.");
+      });
     };
     reader.onerror = function () { fail("The progress file could not be read. Please try again."); };
     reader.readAsText(file);

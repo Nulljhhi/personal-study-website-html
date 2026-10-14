@@ -18,6 +18,10 @@
     if (gameHooks() && gameHooks().key && gameHooks().key(k, event)) { event.preventDefault(); return; }
     if (idleNumberKey(k)) { event.preventDefault(); return; }
     if (game.id === "fishing" && game.fish.phase === "idle" && (k === " " || k === "enter")) {
+      // A focused button or link (Return Home, Pause, Shop) does its own
+      // thing with Enter and Space; casting is for the game itself.
+      var t = event.target;
+      if (t && t.closest && t.closest("button, a[href], [role=button], summary") && t.id !== "game-cast-btn") return;
       event.preventDefault();
       castLine();
       return;

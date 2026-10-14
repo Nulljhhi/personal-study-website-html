@@ -157,7 +157,7 @@
     // Like every other import: only the newest one is opened.
     var token = nextImport();
     desktopCall("read_checkpoint", { id: id })
-      .then(function (text) { if (isLatestImport(token)) restoreQuizProgress(text, id); })
+      .then(function (text) { if (isLatestImport(token)) return restoreQuizProgress(text, id, function () { return isLatestImport(token); }); })
       .catch(function (err) {
         if (!isLatestImport(token)) return;
         notifyError(err && err.message && err.message.indexOf("valid") !== -1

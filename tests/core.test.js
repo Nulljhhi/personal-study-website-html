@@ -24,6 +24,11 @@ function load(code, extra) {
   return vm.runInContext('"use strict";\n' + code + '\n;({' + names.join(',') + '})', context);
 }
 const core = load(fs.readFileSync(path.join(scripts, '01-core.js'), 'utf8'));
+
+// Size limits are in UTF-8 bytes, counted the way they're stored.
+for (const t of ['', 'abc', 'é', '界'.repeat(1000), '😀x', '\ud800', 'a\udc00b', 'mixed é界😀 text']) {
+  check(core.utf8Bytes(t) === Buffer.byteLength(t, 'utf8'), 'utf8Bytes counts ' + JSON.stringify(t.slice(0, 8)) + ' as ' + Buffer.byteLength(t, 'utf8'));
+}
 const zipSource = fs.readFileSync(path.join(scripts, '13-zip-and-images.js'), 'utf8');
 const kitAst = espree.parse('(function(){' + zipSource + '})', { ecmaVersion: 2022, range: true });
 const kitNode = kitAst.body[0].expression.body.body.find((d) => d.type === 'FunctionDeclaration' && d.id.name === 'makeZipKit');

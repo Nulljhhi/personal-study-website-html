@@ -37,8 +37,16 @@
   /* Average words per question in this bank (question + answer + three
      wrong answers of similar length, plus picture time), used for bots and
      Blitz scoring. */
+  /* Worked out once per bank: a bank's questions never change once loaded. */
+  var averageWordsCache = new WeakMap();
   function bankAverageWords() {
-    var qs = state.unit.questions;
+    var hit = averageWordsCache.get(state.unit);
+    if (hit !== undefined) return hit;
+    var avg = averageWordsOf(state.unit.questions);
+    averageWordsCache.set(state.unit, avg);
+    return avg;
+  }
+  function averageWordsOf(qs) {
     var total = 0;
     qs.forEach(function (q) {
       // A hotspot shows no answers to read (its label isn't shown), just the picture.

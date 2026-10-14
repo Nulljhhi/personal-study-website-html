@@ -345,8 +345,9 @@
       var newly = (UNLOCKS[g.id] || []).filter(function (u) { return u.lvl > before && u.lvl <= after; }).map(function (u) { return u.label; });
       notify(GAMES[g.id].name + " level " + after + "!" + (newly.length ? " Unlocked: " + newly.join(", ") + "." : ""));
       checkAchievements(g.id);
-      persistCompleted();
     }
+    // Saves are coalesced, so this costs at most one write per answer.
+    persistCompleted();
   }
 
   function xpForCorrect(combo) { return 10 + (combo >= 10 ? 10 : combo >= 5 ? 5 : combo >= 3 ? 2 : 0); }

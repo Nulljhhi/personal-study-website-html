@@ -2039,6 +2039,25 @@
     return cyrb53(text, 0) + cyrb53(text, 0x9e3779b9);
   }
 
+  /* A string's size in UTF-8, as it's stored on disk: the size limits are
+     in bytes, and a character can take up to four. Counted, not encoded,
+     so a big bank isn't copied to measure it. */
+  function utf8Bytes(text) {
+    var n = text.length;
+    for (var i = 0; i < text.length; i++) {
+      var c = text.charCodeAt(i);
+      if (c < 0x80) continue;
+      if (c < 0x800) { n += 1; continue; }
+      // A surrogate pair is 2 units and 4 bytes; any other is 3 bytes.
+      if (c >= 0xd800 && c < 0xdc00 && i + 1 < text.length) {
+        var d = text.charCodeAt(i + 1);
+        if (d >= 0xdc00 && d < 0xe000) { n += 2; i++; continue; }
+      }
+      n += 2;
+    }
+    return n;
+  }
+
   function seededShuffle(items, seed) {
     var copy = items.slice();
     var rng = mulberry32(seed);
@@ -2687,7 +2706,8 @@
     "",
     "A question with a picture shows it beside the question in quizzes, exams and games, on the front of its flashcard and in the Home list. Matching Tiles stay text only. **Save to folder** keeps the pictures with the bank, and checkpoints carry them too, so you only load the .zip once.",
     "",
-    "- A bank saved with Save to folder holds its pictures inside its .txt, so you can load that .txt directly, or zip it again. Pictures added to that zip as Img.Q files replace only those questions' pictures; the rest are kept.",
+    "- A bank saved with Save to folder, and each checkpoint, points to its pictures in the data folder's `images/` instead of holding them, so the .txt on its own has no pictures: anywhere else they're missing, and a plain browser refuses it. To take picture banks to another computer, copy the whole `StudyWebsite` folder (`banks/`, `progress/`, `checkpoints/` and `images/` together), or keep the original .zip and load it there.",
+    "- A .txt that holds its pictures itself (a bank saved by an older version) can be loaded directly, or zipped again. Pictures added to that zip as Img.Q files replace only those questions' pictures; the rest are kept. Pictures inside a .txt are checked like the ones in a .zip: each has to be a real picture of the size written next to it, within the same limits.",
     "- Save unit files as UTF-8 text (most editors do by default). A file in another encoding is refused rather than loaded with garbled characters.",
     "",
     "## Hotspot questions",
@@ -3356,9 +3376,13 @@
         var batch = chunk.map(function (i) { return metas[i]; });
         return desktopCall("read_banks", { names: batch.map(function (m) { return m[0]; }) })
           .then(function (rows) {
-            // Anything but one answer per bank: read them one at a time.
-            if (!Array.isArray(rows) || rows.length !== batch.length) return mapLimited(batch, 4, readOne);
-            return batch.map(function (m, k) { var r = rows[k] || ["", "", "missing"]; return describeRead(m[0], m[1], r[0], r[1], r[2]); });
+            // Anything but a list of answers in order: read them one at a time.
+            if (!Array.isArray(rows) || rows.length > batch.length || !rows.every(Array.isArray)) return mapLimited(batch, 4, readOne);
+            var got = rows.map(function (r, k) { return describeRead(batch[k][0], batch[k][1], r[0], r[1], r[2]); });
+            // A batch stops early at its size budget (old banks holding
+            // their pictures): keep what came, read only the rest.
+            if (rows.length === batch.length) return got;
+            return mapLimited(batch.slice(rows.length), 4, readOne).then(function (rest) { return got.concat(rest); });
           }, function () { return mapLimited(batch, 4, readOne); })
           .then(function (infos) {
             infos.forEach(function (info, k) {
@@ -3530,6 +3554,7 @@
   function openSavedBank(name) {
     var token = nextImport();
     desktopCall("read_bank", { name: name })
+      .then(checkedBankText)
       .then(function (text) {
         if (!isLatestImport(token)) return;
         var result = loadUnitText(text);
@@ -3583,12 +3608,30 @@
         return keys(parseUnitFile(text)) === keys(state.unit);
       } catch (err) { return false; }
     };
-    var release;
-    if (isOpen) state.progressHold = new Promise(function (r) { release = r; });
+    var release = null;
     var op = trackOperation();
-    (isOpen ? flushSaves(op.promise) : Promise.resolve())
+    // This bank's progress has to be on disk first: the rename moves the
+    // file, and a save still waiting under the old title would bring the
+    // old title's progress back later.
+    var pending = function () { return unsaved.has(item.title) || (isOpen && !!state.lastSaveError); };
+    (isOpen || pending() ? flushSaves(op.promise) : Promise.resolve())
+      .then(function () {
+        if (pending()) {
+          var why = (unsaved.get(item.title) || {}).error || state.lastSaveError;
+          throw new Error("This bank's progress couldn't be saved" + (why ? " (" + why + ")" : "") + ", so it wasn't renamed. Try again once saving works.");
+        }
+        if (!isOpen) return;
+        state.progressHold = new Promise(function (r) { release = r; });
+        // A save that started in the meantime finishes first.
+        return Promise.resolve(saveQueued || saveInFlight).then(function (ok) {
+          if (ok === false || pending()) throw new Error("This bank's progress couldn't be saved, so it wasn't renamed. Try again once saving works.");
+        });
+      })
       .then(function () { return desktopCall("rename_bank", { name: item.name, newTitle: newTitle }); })
       .then(function (result) {
+        // Nothing is left to write under the old title.
+        unsaved.delete(item.title);
+        delete lastWritten[item.title];
         hideBankRename();
         notify("Renamed to " + newTitle + ".");
         if (result[2]) notifyError(result[2]);
@@ -3610,7 +3653,7 @@
       })
       .catch(function (err) { notifyError(err.message); })
       .then(function () {
-        if (!isOpen) return true;
+        if (!release) return true;
         state.progressHold = null;
         release();
         // Anything that had to wait is saved now, under the new title.
@@ -3942,6 +3985,60 @@
     completedRev++;
   }
 
+  /* Two tabs of one browser share its storage, and each would write its
+     whole copy of a bank's progress over the other's. So one tab at a time
+     saves a bank's progress: it holds a lock named after the bank, let go
+     when the tab closes or opens another bank. Another tab with the same
+     bank open says so and saves nothing; once the lock is free it takes
+     it and reads the progress again (keeping what it marked meanwhile).
+     The desktop app runs once, so it needs none of this. */
+  var tabLock = { title: null, release: null };
+  /* Resolves once it's known whether this tab saves the bank. */
+  function claimTabLock(title, token) {
+    state.tabReadOnly = false;
+    if (hasDesktop) return Promise.resolve();
+    // This tab saves this bank already (reopened, or read again).
+    if (tabLock.release && tabLock.title === title) return Promise.resolve();
+    if (tabLock.release) { tabLock.release(); tabLock.release = null; }
+    tabLock.title = title;
+    var locks = typeof navigator !== "undefined" && navigator.locks;
+    if (!locks || typeof locks.request !== "function") return Promise.resolve();
+    var decided;
+    var known = new Promise(function (r) { decided = r; });
+    var name = "study-website-progress:" + title;
+    var hold = function () { return new Promise(function (r) { tabLock.release = r; tabLock.title = title; }); };
+    var current = function () { return token === completedLoadToken; };
+    locks.request(name, { ifAvailable: true }, function (lock) {
+      if (!current()) { decided(); return null; }
+      if (lock) { var held = hold(); decided(); return held; }
+      state.tabReadOnly = true;
+      decided();
+      notifyError("This bank is open in another tab of this browser, so progress made here isn't saved while it's open there. Close it there, or open another bank there, and this tab saves again.");
+      // Wait for the other tab to let go.
+      locks.request(name, function () {
+        if (!current()) return null;
+        var held = hold();
+        state.tabReadOnly = false;
+        if (state.screen === "game" && game && !game.over) {
+          notify("The other tab closed this bank. Reopen it here to save its progress.");
+        } else {
+          notify("The other tab closed this bank, so this tab saves its progress now.");
+          // Read what the other tab saved, keeping what was marked here
+          // (marks and scores made before a load finishes are merged in).
+          var marks = state.completed, scores = state.highScores;
+          loadCompletedForUnit();
+          Object.keys(marks).forEach(function (k) { state.completed[k] = true; });
+          Object.keys(scores).forEach(function (k) { state.highScores[k] = scores[k]; });
+          completedRev++;
+          persistCompleted();
+        }
+        return held;
+      }).catch(function () {});
+      return null;
+    }).catch(function () { /* locks refused (a sandboxed frame): no lock */ decided(); });
+    return known;
+  }
+
   /* Loads in the background. Anything marked before the load finishes is
      merged with what's on disk (not overwritten by it), and saves wait for
      the load so they never replace older completions with a partial list. */
@@ -3955,17 +4052,22 @@
     state.highScores = Object.create(null);
     state.gameData = freshGameData();
     state.completedFor = title;
+    // The ID comes with this bank's progress; until it's read there is
+    // none, never the previous bank's (a checkpoint saved meanwhile would
+    // carry it).
+    state.bankId = null;
     state.completedLoadFailed = false;
     state.completedSaveWarned = false;
     state.lastSaveError = null;
     state.bankDeleted = deletedTitles.has(title);
     state.progressExtra = {};
     state.gamesExtra = {};
+    var lockKnown = claimTabLock(title, token);
     renderCompletedMarks();
     // A save still being written (for this bank, reopened, or the one being
     // left) lands first, so the read sees it instead of the older file.
     var pending = saveQueued || saveInFlight;
-    state.completedReady = Promise.resolve(pending).catch(function () {})
+    state.completedReady = Promise.all([Promise.resolve(pending).catch(function () {}), lockKnown])
       .then(function () { return token === completedLoadToken ? readCompletedStore(title) : ""; })
       .then(function (text) {
         if (token !== completedLoadToken) return; // another unit loaded meanwhile
@@ -4191,6 +4293,8 @@
         }
         return false;
       }
+      // Another tab saves this bank (see claimTabLock); it said so once.
+      if (state.tabReadOnly) return false;
       if (state.completedLoadFailed) {
         // Warn once per bank load, not on every answer.
         if (!state.completedSaveWarned) {
@@ -4284,10 +4388,13 @@
       if (!retried) failedWrites.forEach(function (f) {
         if (typeof f.retry === "function") again.push(Promise.resolve(f.retry()).then(function () { return true; }, function () { return false; }));
       });
+      // The open bank is always written from its current state: changes
+      // that never asked for a save (XP short of a level, a game's stats
+      // on an already completed question) are caught here. An unchanged
+      // bank costs no write (writeProgressNow skips identical progress).
       var cur = state.unit;
-      var retryCurrent = cur && !state.progressHold && !state.completedLoadFailed && !state.bankDeleted &&
-        (state.lastSaveError || unsaved.has(cur.unitTitle));
-      var retry = retryCurrent ? persistCompleted() : null;
+      var saveCurrent = cur && !state.progressHold && !state.completedLoadFailed && !state.bankDeleted;
+      var retry = saveCurrent ? persistCompleted() : null;
       // Banks that were left with an unsaved change get one more try.
       var others = [];
       unsaved.forEach(function (u, title) {
@@ -4450,15 +4557,23 @@
     if (message) notifyError(message);
   }
 
+  /* Pictures the desktop app keeps in its picture folder can't be shown
+     in a plain browser; say so rather than show broken pictures. Every way
+     a bank comes in (a file, a saved session) checks this first. */
+  var DESKTOP_PICTURES_ERROR = "This bank's pictures are stored in the desktop app's picture folder, so they can only be shown there. Here, load the original .zip instead.";
+  function checkUnitUsableHere(unit) {
+    if (!hasDesktop && unit.questions.some(function (q) { return q.image && q.image.indexOf("asset:") === 0; })) {
+      var err = new Error(DESKTOP_PICTURES_ERROR);
+      err.explained = true;
+      throw err;
+    }
+  }
+
   function loadUnitText(text) {
     var unit;
     try {
       unit = parseUnitFile(text);
-      // Pictures the desktop app keeps in its picture folder can't be shown
-      // in a plain browser; say so rather than show broken pictures.
-      if (!hasDesktop && unit.questions.some(function (q) { return q.image && q.image.indexOf("asset:") === 0; })) {
-        throw new Error("This bank's pictures are stored in the desktop app's picture folder, so they can only be shown there. Here, load the original .zip instead.");
-      }
+      checkUnitUsableHere(unit);
     } catch (err) {
       var message = err && err.message ? err.message : "The unit file could not be read.";
       setLandingError(message);
@@ -4518,7 +4633,8 @@
       var text;
       try { text = checkedUnitText(decodeUnitBytes(new Uint8Array(reader.result), file.name), file.name); }
       catch (err) { setLandingError(err.message); return; }
-      loadUnitText(text);
+      checkedBankText(text).then(function (t) { if (isLatestImport(token)) loadUnitText(t); },
+        function (err) { if (isLatestImport(token)) setLandingError(err.message); });
     };
     reader.onerror = function () {
       if (isLatestImport(token)) setLandingError("The file could not be read.");
@@ -4529,7 +4645,7 @@
   /* The text of a unit file is at most 5 MB; pictures written into a saved
      bank don't count toward that. */
   function checkedUnitText(text, name) {
-    if (splitImageSection(text).text.length > MAX_BANK_BYTES) throw new Error("\"" + name + "\" is too large to be a unit file (the limit is 5 MB of text).");
+    if (utf8Bytes(splitImageSection(text).text) > MAX_BANK_BYTES) throw new Error("\"" + name + "\" is too large to be a unit file (the limit is 5 MB of text).");
     return text;
   }
 
@@ -4569,7 +4685,7 @@
       .then(function (text) {
         if (!isLatestImport(token)) return;
         try { text = checkedUnitText(text, paths[0].split(/[\\/]/).pop()); } catch (err) { notifyError(err.message); return; }
-        loadUnitText(text);
+        return checkedBankText(text).then(function (t) { if (isLatestImport(token)) loadUnitText(t); });
       })
       .catch(function (err) { if (isLatestImport(token)) notifyError(err.message); });
   }
@@ -4618,13 +4734,23 @@
   }
   function forceQuit() {
     quitForced = true;
-    return desktopCall("quit_app");
+    return desktopCall("quit_app", { force: true });
+  }
+  /* The last step of saving (making the files permanent on the disk)
+     happens in the app as it quits; if that fails, the window stays open. */
+  function finalSyncProblem(err) {
+    state.lastSaveError = err && err.message || String(err);
+    showQuitProblem(false);
+    return false;
   }
   function requestQuit() {
     return waitForSaves().then(function (r) {
-      if (r === true) return forceQuit();
-      showQuitProblem(r);
-      return false;
+      if (r !== true) { showQuitProblem(r); return false; }
+      quitForced = true;
+      return desktopCall("quit_app", { force: false }).catch(function (err) {
+        quitForced = false;
+        return finalSyncProblem(err);
+      });
     });
   }
   function setupQuitDialog() {
@@ -4642,9 +4768,12 @@
     Promise.resolve(win.onCloseRequested(function (event) {
       if (quitForced) return;
       return waitForSaves().then(function (r) {
-        if (r === true) return;
+        if (r === true) return desktopCall("finish_saves").then(function () { return "synced"; }, function (err) { return err; });
+        return r;
+      }).then(function (r) {
+        if (r === "synced") return;
         if (event && typeof event.preventDefault === "function") event.preventDefault();
-        showQuitProblem(r);
+        if (r instanceof Error || (r && r.message)) finalSyncProblem(r); else showQuitProblem(r);
       });
     })).catch(function () {});
   }
@@ -5355,7 +5484,7 @@
     var snapshot = {
       format: "study-website-session", version: 1,
       savedAt: new Date().toISOString(), unitTitle: state.unit ? state.unit.unitTitle : "",
-      bankId: state.bankId || undefined,
+      bankId: undefined, // filled in below, once this bank's ID is known
       answeredCount: answered, totalCount: q.order.length,
       unitText: state.unitText,
       mode: q.mode, seed: q.seed, options: q.options, poolIds: q.poolIds,
@@ -5369,14 +5498,24 @@
       showSeed: state.showSeed, sessionExpanded: state.sessionExpanded
     };
     if (hasDesktop) {
-      var id = q.checkpointId;
-      var json = JSON.stringify(snapshot);
-      if (json.length > MAX_JSON_BYTES) { setSessionStatus("Could not save progress: this bank and its pictures are too large for a checkpoint.", true); return; }
-      retryableWrite("checkpoint:" + id, function () { return desktopCall("save_checkpoint", { id: id, json: json }); })
-        .then(function () {
-          setSessionStatus("Progress saved (" + answered + " of " + q.order.length + " answered).");
-        })
-        .catch(function (err) { setSessionStatus("Could not save progress: " + err.message, true); });
+      var id = q.checkpointId, unit = state.unit;
+      // The bank's ID is read with its progress (an exam can be started,
+      // and saved, before that): wait for it. A checkpoint saved after
+      // another bank was opened goes without one rather than with the
+      // wrong one.
+      var saving = Promise.resolve(state.completedReady).catch(function () {}).then(function () {
+        if (state.unit === unit && state.completedFor === unit.unitTitle) snapshot.bankId = state.bankId || undefined;
+        var json = JSON.stringify(snapshot);
+        if (utf8Bytes(json) > MAX_JSON_BYTES) { setSessionStatus("Could not save progress: this bank and its pictures are too large for a checkpoint.", true); return; }
+        return retryableWrite("checkpoint:" + id, function () { return desktopCall("save_checkpoint", { id: id, json: json }); })
+          .then(function () {
+            setSessionStatus("Progress saved (" + answered + " of " + q.order.length + " answered).");
+          });
+      });
+      // A quit meanwhile waits for it too (a failure is the checkpoint's
+      // own tracked write, retried on quit).
+      trackWrite(saving.then(function () { return true; }, function () { return true; }));
+      saving.catch(function (err) { setSessionStatus("Could not save progress: " + err.message, true); });
       return;
     }
     try {
@@ -5409,7 +5548,10 @@
     requireValid(saved && saved.format === "study-website-session" && saved.version === 1);
     requireValid(saved.mode === "quiz" || saved.mode === "exam");
     requireValid(Number.isSafeInteger(saved.seed) && saved.seed >= 0);
+    requireValid(typeof saved.unitText === "string");
     var unit = parseUnitFile(saved.unitText);
+    // A desktop checkpoint's pictures can't be shown in a plain browser.
+    checkUnitUsableHere(unit);
     var opts = saved.options;
     requireValid(opts && Number.isInteger(opts.count) && opts.count >= 1 && opts.count <= unit.questions.length);
     requireValid(saved.mode !== "exam" || opts.count === unit.questions.length);
@@ -5481,8 +5623,18 @@
     return { saved: saved, unit: unit, opts: opts, poolIds: poolIds, stored: stored };
   }
 
-  function restoreQuizProgress(text, checkpointId) {
-    var v = validateSession(text);
+  /* Validates the session and its pictures, then restores it. Resolves
+     once it's open; rejects (changing nothing) if it can't be used, or if
+     isCurrent() says the person has opened something else meanwhile. */
+  function restoreQuizProgress(text, checkpointId, isCurrent) {
+    var v;
+    try { v = validateSession(text); } catch (err) { return Promise.reject(err); }
+    return checkBankImages(v.unit.images).then(function () {
+      if (isCurrent && !isCurrent()) return;
+      applySession(v, checkpointId);
+    });
+  }
+  function applySession(v, checkpointId) {
     var saved = v.saved, unit = v.unit, opts = v.opts, poolIds = v.poolIds, stored = v.stored;
     // Validate fully before replacing the current unit or attempt.
     if (!state.unit || state.unit.unitTitle !== unit.unitTitle) {
@@ -5535,8 +5687,11 @@
     function fail(message) { if (isLatestImport(token)) notifyError(message); }
     reader.onload = function () {
       if (!isLatestImport(token)) return;
-      try { restoreQuizProgress(String(reader.result)); }
-      catch (err) { fail("Could not resume. Choose a valid JSON file downloaded with Save progress."); }
+      restoreQuizProgress(String(reader.result), null, function () { return isLatestImport(token); }).catch(function (err) {
+        // Picture problems and the desktop-pictures refusal say what's wrong;
+        // anything else is a file that isn't a valid saved session.
+        fail(err && (err.explained || err.picture) ? err.message : "Could not resume. Choose a valid JSON file downloaded with Save progress.");
+      });
     };
     reader.onerror = function () { fail("The progress file could not be read. Please try again."); };
     reader.readAsText(file);
@@ -5701,7 +5856,7 @@
     // Like every other import: only the newest one is opened.
     var token = nextImport();
     desktopCall("read_checkpoint", { id: id })
-      .then(function (text) { if (isLatestImport(token)) restoreQuizProgress(text, id); })
+      .then(function (text) { if (isLatestImport(token)) return restoreQuizProgress(text, id, function () { return isLatestImport(token); }); })
       .catch(function (err) {
         if (!isLatestImport(token)) return;
         notifyError(err && err.message && err.message.indexOf("valid") !== -1
@@ -6376,7 +6531,7 @@
         }
         resolve({ width: w, height: h });
       };
-      img.onerror = function () { clearTimeout(timer); reject(new Error("\"" + name + "\" in the .zip isn't a picture this app can show.")); };
+      img.onerror = function () { clearTimeout(timer); reject(new Error("\"" + name + "\" isn't a picture this app can show.")); };
       img.src = src;
     });
   }
@@ -6394,6 +6549,7 @@
       var blobUrl = im.bytes && typeof Blob === "function" ? URL.createObjectURL(new Blob([im.bytes], { type: im.type })) : null;
       if (blobUrl) made.push(blobUrl);
       return measureImage(blobUrl || src, im.name).then(function (dim) {
+        rememberChecked(src);
         out[im.n] = { name: im.name, src: src, id: im.id, width: dim.width, height: dim.height, blobUrl: blobUrl };
         return next();
       });
@@ -6410,6 +6566,61 @@
     });
   }
 
+  /* Pictures already written into a bank's text (a .txt, a .zip's unit
+     file, a saved bank, a saved session) get the same checks as loose ones
+     from a .zip: each really is a picture, of the size the bank says it is
+     (a hotspot's circle depends on that shape), within the size limits,
+     and all of them together within the total. A picture that passed once
+     isn't decoded again this session. Pictures in the desktop app's own
+     store ("asset:") were checked when they were stored. */
+  var checkedPictures = new Set(), checkedChars = 0;
+  function rememberChecked(src) {
+    // Kept within bounds: past ~100 MB of picture text, start again.
+    if (checkedChars + src.length > 100 * 1024 * 1024) { checkedPictures.clear(); checkedChars = 0; }
+    if (!checkedPictures.has(src)) { checkedPictures.add(src); checkedChars += src.length; }
+  }
+  function inlinePictureBytes(src) {
+    var b64 = src.slice(src.indexOf(",") + 1);
+    return Math.floor(b64.length * 3 / 4) - (/==$/.test(b64) ? 2 : /=$/.test(b64) ? 1 : 0);
+  }
+  function checkBankImages(images) {
+    var list = [], total = 0, err = null;
+    Object.keys(images || {}).forEach(function (n) {
+      var im = images[n];
+      if (err || im.src.indexOf("data:") !== 0) return;
+      var size = inlinePictureBytes(im.src);
+      total += size;
+      if (size > MAX_IMAGE_BYTES) err = new Error("\"" + im.name + "\" is larger than 8 MB. Make it smaller and load the .zip again.");
+      else if (!checkedPictures.has(im.src)) list.push(im);
+    });
+    if (!err && total > MAX_IMAGES_TOTAL) err = new Error("This bank's pictures add up to more than 25 MB. Make them smaller and load the .zip again.");
+    var tagged = function (e) { if (e && typeof e === "object") e.picture = true; throw e; };
+    if (err) return Promise.reject(err).catch(tagged);
+    var i = 0, failed = false;
+    var next = function () {
+      if (failed || i >= list.length) return Promise.resolve();
+      var im = list[i++];
+      return measureImage(im.src, im.name).then(function (dim) {
+        // Sizes are written rounded to whole pixels.
+        if (!(Math.abs(dim.width - im.width) <= 1 && Math.abs(dim.height - im.height) <= 1)) {
+          throw new Error("\"" + im.name + "\" is " + dim.width + "×" + dim.height + " pixels, but this bank says " + im.width + "×" + im.height + ". Load the original .zip again.");
+        }
+        rememberChecked(im.src);
+        return next();
+      });
+    };
+    var runners = [];
+    for (var k = 0; k < Math.min(4, list.length); k++) runners.push(next().catch(function (e) { failed = true; throw e; }));
+    return Promise.all(runners).then(function () {}, tagged);
+  }
+  /* The bank text, once its pictures pass checkBankImages. Text that
+     doesn't parse is passed on, for loadUnitText to explain. */
+  function checkedBankText(text) {
+    var split;
+    try { split = splitImageSection(text); } catch (err) { return Promise.resolve(text); }
+    return checkBankImages(split.images).then(function () { return text; });
+  }
+
   /* A zip's bytes → the bank's text with its images attached. */
   function unitTextFromZip(bytes) {
     if (bytes.length > MAX_ZIP_BYTES) return Promise.reject(new Error("This .zip is too large (the limit is 40 MB)."));
@@ -6420,18 +6631,19 @@
       // in the zip replace those questions' pictures only.
       var split = splitImageSection(r.text);
       var text = split.text;
-      if (text.length > MAX_BANK_BYTES) throw new Error("The unit file in this .zip is too large (the limit is 5 MB of text).");
+      if (utf8Bytes(text) > MAX_BANK_BYTES) throw new Error("The unit file in this .zip is too large (the limit is 5 MB of text).");
       return measureAll(r.images, 4).then(function (loose) {
         var result = {}, urls = [];
         Object.keys(split.images).forEach(function (n) { result[n] = split.images[n]; });
         Object.keys(loose).forEach(function (n) { result[n] = loose[n]; urls.push({ src: loose[n].src, url: loose[n].blobUrl }); });
         urls = urls.filter(function (u) { return u.url; });
-        var bundled = bundleImages(text, result);
-        if (bundled.length > MAX_BUNDLE_BYTES) {
-          dropBlobUrls(urls);
-          throw new Error("This bank and its pictures add up to more than 40 MB. Make the pictures smaller.");
-        }
-        return { text: bundled, count: Object.keys(result).length, urls: urls };
+        // The pictures kept from the unit file are checked too, and every
+        // picture counts toward the total.
+        return checkBankImages(result).then(function () {
+          var bundled = bundleImages(text, result);
+          if (utf8Bytes(bundled) > MAX_BUNDLE_BYTES) throw new Error("This bank and its pictures add up to more than 40 MB. Make the pictures smaller.");
+          return { text: bundled, count: Object.keys(result).length, urls: urls };
+        }).catch(function (err) { dropBlobUrls(urls); throw err; });
       });
     });
   }
@@ -6543,11 +6755,14 @@
     img.alt = "Picture for this question";
     img.draggable = false;
     img.decoding = "async";
+    var missing = function () {
+      img.alt = "This picture couldn't be loaded";
+      img.classList.add("img-missing");
+    };
+    // A picture that's fetched but can't be shown is marked the same way.
+    img.addEventListener("error", missing);
     var load = function () {
-      imageUrl(question.image).then(function (u) { img.src = u; }, function () {
-        img.alt = "This picture couldn't be loaded";
-        img.classList.add("img-missing");
-      });
+      imageUrl(question.image).then(function (u) { img.src = u; }, missing);
     };
     if (lazy) { img.loading = "lazy"; whenNearView(img, load); } else load();
     return img;
@@ -6628,6 +6843,8 @@
     pad.addEventListener("keydown", function (event) {
       // A minigame owns the keys while it's up (its arrows and Space/Enter).
       if (api.locked || (game && game.minigame)) return;
+      // Shortcuts with Ctrl, Alt or Cmd aren't the pad's.
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
       var k = event.key, step = event.shiftKey ? 0.5 : 2.5;
       var d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[k];
       if (d) {
@@ -6642,6 +6859,9 @@
       } else if (k === "Enter" || k === " ") {
         event.preventDefault();
         event.stopPropagation();
+        // A held key repeats: only a fresh press shows or picks, so holding
+        // it can't answer this question (or the next one, which gets focus).
+        if (event.repeat) return;
         if (!api.cursor) {
           // No cursor yet: show one in the middle to move from (and don't
           // let Space scroll the page).
@@ -7399,8 +7619,9 @@
       var newly = (UNLOCKS[g.id] || []).filter(function (u) { return u.lvl > before && u.lvl <= after; }).map(function (u) { return u.label; });
       notify(GAMES[g.id].name + " level " + after + "!" + (newly.length ? " Unlocked: " + newly.join(", ") + "." : ""));
       checkAchievements(g.id);
-      persistCompleted();
     }
+    // Saves are coalesced, so this costs at most one write per answer.
+    persistCompleted();
   }
 
   function xpForCorrect(combo) { return 10 + (combo >= 10 ? 10 : combo >= 5 ? 5 : combo >= 3 ? 2 : 0); }
@@ -10098,6 +10319,9 @@
     if (!state.unit) return;
     showScreen("garden");
     byId("garden-plots").textContent = "Loading your garden…";
+    // Until this bank's garden has loaded, a change would go to a profile
+    // that's about to be replaced: the controls wait for it (renderGarden).
+    ["garden-water-btn", "garden-seed-btn", "garden-seed-size", "garden-shop-btn"].forEach(function (id) { byId(id).disabled = true; });
     state.completedReady.then(function () {
       if (state.screen !== "garden") return;
       var fresh = gardenCheckVisitors();
@@ -10124,6 +10348,8 @@
     seeds.disabled = !unplanted;
     seeds.textContent = unplanted ? "Plant " + Math.min(p.seedSize, unplanted) + " new seeds" : "Every seed is planted";
     byId("garden-seed-size").value = String(p.seedSize);
+    byId("garden-seed-size").disabled = false;
+    byId("garden-shop-btn").disabled = false;
     var box = byId("garden-plots");
     box.textContent = "";
     var today = gardenDay();
@@ -12809,8 +13035,16 @@
   /* Average words per question in this bank (question + answer + three
      wrong answers of similar length, plus picture time), used for bots and
      Blitz scoring. */
+  /* Worked out once per bank: a bank's questions never change once loaded. */
+  var averageWordsCache = new WeakMap();
   function bankAverageWords() {
-    var qs = state.unit.questions;
+    var hit = averageWordsCache.get(state.unit);
+    if (hit !== undefined) return hit;
+    var avg = averageWordsOf(state.unit.questions);
+    averageWordsCache.set(state.unit, avg);
+    return avg;
+  }
+  function averageWordsOf(qs) {
     var total = 0;
     qs.forEach(function (q) {
       // A hotspot shows no answers to read (its label isn't shown), just the picture.
@@ -15598,6 +15832,10 @@
     if (gameHooks() && gameHooks().key && gameHooks().key(k, event)) { event.preventDefault(); return; }
     if (idleNumberKey(k)) { event.preventDefault(); return; }
     if (game.id === "fishing" && game.fish.phase === "idle" && (k === " " || k === "enter")) {
+      // A focused button or link (Return Home, Pause, Shop) does its own
+      // thing with Enter and Space; casting is for the game itself.
+      var t = event.target;
+      if (t && t.closest && t.closest("button, a[href], [role=button], summary") && t.id !== "game-cast-btn") return;
       event.preventDefault();
       castLine();
       return;

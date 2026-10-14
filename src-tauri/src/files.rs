@@ -112,40 +112,60 @@ fn write_replacing(path: &Path, contents: &[u8], sync: Sync) -> Result<(), Strin
         format!("Could not save {}: {e}", path.display())
     })?;
     if sync == Sync::Full {
-        sync_dir(path);
+        sync_dir(path)?;
     }
     Ok(())
 }
 
 /// Make a rename in this file's folder permanent (the folder's own entry
 /// list is cached too). Only Unix needs, and allows, this.
-pub fn sync_dir(path: &Path) {
+pub fn sync_dir(path: &Path) -> Result<(), String> {
     #[cfg(unix)]
     if let Some(dir) = path.parent() {
-        let _ = fs::File::open(dir).and_then(|d| d.sync_all());
+        match fs::File::open(dir).and_then(|d| d.sync_all()) {
+            Ok(()) => {}
+            // Some file systems (network drives, some FUSE mounts) can't
+            // sync a folder at all; there's nothing more to do on those.
+            Err(e) if matches!(e.kind(), std::io::ErrorKind::InvalidInput | std::io::ErrorKind::Unsupported) => {}
+            Err(e) => return Err(format!("Could not finish saving {}: {e}", path.display())),
+        }
     }
     #[cfg(not(unix))]
     let _ = path;
+    Ok(())
 }
 
 /// Make earlier write_safe swaps permanent on the disk. Files that
 /// are gone are skipped. Returns the first error.
 pub fn sync_files<'a>(paths: impl IntoIterator<Item = &'a Path>) -> Result<(), String> {
-    let mut first = Ok(());
+    match sync_each(paths) {
+        (_, None) => Ok(()),
+        (_, Some(e)) => Err(e),
+    }
+}
+
+/// sync_files, also returning the paths that couldn't be synced (to try
+/// again later) along with the first error.
+pub fn sync_each<'a>(paths: impl IntoIterator<Item = &'a Path>) -> (Vec<PathBuf>, Option<String>) {
+    let mut failed = Vec::new();
+    let mut first = None;
     for path in paths {
         if fs::symlink_metadata(path).is_err() {
             continue;
         }
         // Write access: Windows only flushes a handle that can write.
-        let synced = fs::OpenOptions::new().write(true).open(path).and_then(|f| f.sync_all());
+        let synced = fs::OpenOptions::new()
+            .write(true)
+            .open(path)
+            .and_then(|f| f.sync_all())
+            .map_err(|e| format!("Could not finish saving {}: {e}", path.display()))
+            .and_then(|()| sync_dir(path));
         if let Err(e) = synced {
-            if first.is_ok() {
-                first = Err(format!("Could not finish saving {}: {e}", path.display()));
-            }
+            failed.push(path.to_path_buf());
+            first.get_or_insert(e);
         }
-        sync_dir(path);
     }
-    first
+    (failed, first)
 }
 
 /// A saved bank can carry its images (written into the text when a .zip is

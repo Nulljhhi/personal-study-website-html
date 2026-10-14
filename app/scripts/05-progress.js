@@ -276,6 +276,60 @@
     completedRev++;
   }
 
+  /* Two tabs of one browser share its storage, and each would write its
+     whole copy of a bank's progress over the other's. So one tab at a time
+     saves a bank's progress: it holds a lock named after the bank, let go
+     when the tab closes or opens another bank. Another tab with the same
+     bank open says so and saves nothing; once the lock is free it takes
+     it and reads the progress again (keeping what it marked meanwhile).
+     The desktop app runs once, so it needs none of this. */
+  var tabLock = { title: null, release: null };
+  /* Resolves once it's known whether this tab saves the bank. */
+  function claimTabLock(title, token) {
+    state.tabReadOnly = false;
+    if (hasDesktop) return Promise.resolve();
+    // This tab saves this bank already (reopened, or read again).
+    if (tabLock.release && tabLock.title === title) return Promise.resolve();
+    if (tabLock.release) { tabLock.release(); tabLock.release = null; }
+    tabLock.title = title;
+    var locks = typeof navigator !== "undefined" && navigator.locks;
+    if (!locks || typeof locks.request !== "function") return Promise.resolve();
+    var decided;
+    var known = new Promise(function (r) { decided = r; });
+    var name = "study-website-progress:" + title;
+    var hold = function () { return new Promise(function (r) { tabLock.release = r; tabLock.title = title; }); };
+    var current = function () { return token === completedLoadToken; };
+    locks.request(name, { ifAvailable: true }, function (lock) {
+      if (!current()) { decided(); return null; }
+      if (lock) { var held = hold(); decided(); return held; }
+      state.tabReadOnly = true;
+      decided();
+      notifyError("This bank is open in another tab of this browser, so progress made here isn't saved while it's open there. Close it there, or open another bank there, and this tab saves again.");
+      // Wait for the other tab to let go.
+      locks.request(name, function () {
+        if (!current()) return null;
+        var held = hold();
+        state.tabReadOnly = false;
+        if (state.screen === "game" && game && !game.over) {
+          notify("The other tab closed this bank. Reopen it here to save its progress.");
+        } else {
+          notify("The other tab closed this bank, so this tab saves its progress now.");
+          // Read what the other tab saved, keeping what was marked here
+          // (marks and scores made before a load finishes are merged in).
+          var marks = state.completed, scores = state.highScores;
+          loadCompletedForUnit();
+          Object.keys(marks).forEach(function (k) { state.completed[k] = true; });
+          Object.keys(scores).forEach(function (k) { state.highScores[k] = scores[k]; });
+          completedRev++;
+          persistCompleted();
+        }
+        return held;
+      }).catch(function () {});
+      return null;
+    }).catch(function () { /* locks refused (a sandboxed frame): no lock */ decided(); });
+    return known;
+  }
+
   /* Loads in the background. Anything marked before the load finishes is
      merged with what's on disk (not overwritten by it), and saves wait for
      the load so they never replace older completions with a partial list. */
@@ -289,17 +343,22 @@
     state.highScores = Object.create(null);
     state.gameData = freshGameData();
     state.completedFor = title;
+    // The ID comes with this bank's progress; until it's read there is
+    // none, never the previous bank's (a checkpoint saved meanwhile would
+    // carry it).
+    state.bankId = null;
     state.completedLoadFailed = false;
     state.completedSaveWarned = false;
     state.lastSaveError = null;
     state.bankDeleted = deletedTitles.has(title);
     state.progressExtra = {};
     state.gamesExtra = {};
+    var lockKnown = claimTabLock(title, token);
     renderCompletedMarks();
     // A save still being written (for this bank, reopened, or the one being
     // left) lands first, so the read sees it instead of the older file.
     var pending = saveQueued || saveInFlight;
-    state.completedReady = Promise.resolve(pending).catch(function () {})
+    state.completedReady = Promise.all([Promise.resolve(pending).catch(function () {}), lockKnown])
       .then(function () { return token === completedLoadToken ? readCompletedStore(title) : ""; })
       .then(function (text) {
         if (token !== completedLoadToken) return; // another unit loaded meanwhile
@@ -525,6 +584,8 @@
         }
         return false;
       }
+      // Another tab saves this bank (see claimTabLock); it said so once.
+      if (state.tabReadOnly) return false;
       if (state.completedLoadFailed) {
         // Warn once per bank load, not on every answer.
         if (!state.completedSaveWarned) {
@@ -618,10 +679,13 @@
       if (!retried) failedWrites.forEach(function (f) {
         if (typeof f.retry === "function") again.push(Promise.resolve(f.retry()).then(function () { return true; }, function () { return false; }));
       });
+      // The open bank is always written from its current state: changes
+      // that never asked for a save (XP short of a level, a game's stats
+      // on an already completed question) are caught here. An unchanged
+      // bank costs no write (writeProgressNow skips identical progress).
       var cur = state.unit;
-      var retryCurrent = cur && !state.progressHold && !state.completedLoadFailed && !state.bankDeleted &&
-        (state.lastSaveError || unsaved.has(cur.unitTitle));
-      var retry = retryCurrent ? persistCompleted() : null;
+      var saveCurrent = cur && !state.progressHold && !state.completedLoadFailed && !state.bankDeleted;
+      var retry = saveCurrent ? persistCompleted() : null;
       // Banks that were left with an unsaved change get one more try.
       var others = [];
       unsaved.forEach(function (u, title) {

@@ -359,7 +359,7 @@
         }
         resolve({ width: w, height: h });
       };
-      img.onerror = function () { clearTimeout(timer); reject(new Error("\"" + name + "\" in the .zip isn't a picture this app can show.")); };
+      img.onerror = function () { clearTimeout(timer); reject(new Error("\"" + name + "\" isn't a picture this app can show.")); };
       img.src = src;
     });
   }
@@ -377,6 +377,7 @@
       var blobUrl = im.bytes && typeof Blob === "function" ? URL.createObjectURL(new Blob([im.bytes], { type: im.type })) : null;
       if (blobUrl) made.push(blobUrl);
       return measureImage(blobUrl || src, im.name).then(function (dim) {
+        rememberChecked(src);
         out[im.n] = { name: im.name, src: src, id: im.id, width: dim.width, height: dim.height, blobUrl: blobUrl };
         return next();
       });
@@ -393,6 +394,61 @@
     });
   }
 
+  /* Pictures already written into a bank's text (a .txt, a .zip's unit
+     file, a saved bank, a saved session) get the same checks as loose ones
+     from a .zip: each really is a picture, of the size the bank says it is
+     (a hotspot's circle depends on that shape), within the size limits,
+     and all of them together within the total. A picture that passed once
+     isn't decoded again this session. Pictures in the desktop app's own
+     store ("asset:") were checked when they were stored. */
+  var checkedPictures = new Set(), checkedChars = 0;
+  function rememberChecked(src) {
+    // Kept within bounds: past ~100 MB of picture text, start again.
+    if (checkedChars + src.length > 100 * 1024 * 1024) { checkedPictures.clear(); checkedChars = 0; }
+    if (!checkedPictures.has(src)) { checkedPictures.add(src); checkedChars += src.length; }
+  }
+  function inlinePictureBytes(src) {
+    var b64 = src.slice(src.indexOf(",") + 1);
+    return Math.floor(b64.length * 3 / 4) - (/==$/.test(b64) ? 2 : /=$/.test(b64) ? 1 : 0);
+  }
+  function checkBankImages(images) {
+    var list = [], total = 0, err = null;
+    Object.keys(images || {}).forEach(function (n) {
+      var im = images[n];
+      if (err || im.src.indexOf("data:") !== 0) return;
+      var size = inlinePictureBytes(im.src);
+      total += size;
+      if (size > MAX_IMAGE_BYTES) err = new Error("\"" + im.name + "\" is larger than 8 MB. Make it smaller and load the .zip again.");
+      else if (!checkedPictures.has(im.src)) list.push(im);
+    });
+    if (!err && total > MAX_IMAGES_TOTAL) err = new Error("This bank's pictures add up to more than 25 MB. Make them smaller and load the .zip again.");
+    var tagged = function (e) { if (e && typeof e === "object") e.picture = true; throw e; };
+    if (err) return Promise.reject(err).catch(tagged);
+    var i = 0, failed = false;
+    var next = function () {
+      if (failed || i >= list.length) return Promise.resolve();
+      var im = list[i++];
+      return measureImage(im.src, im.name).then(function (dim) {
+        // Sizes are written rounded to whole pixels.
+        if (!(Math.abs(dim.width - im.width) <= 1 && Math.abs(dim.height - im.height) <= 1)) {
+          throw new Error("\"" + im.name + "\" is " + dim.width + "×" + dim.height + " pixels, but this bank says " + im.width + "×" + im.height + ". Load the original .zip again.");
+        }
+        rememberChecked(im.src);
+        return next();
+      });
+    };
+    var runners = [];
+    for (var k = 0; k < Math.min(4, list.length); k++) runners.push(next().catch(function (e) { failed = true; throw e; }));
+    return Promise.all(runners).then(function () {}, tagged);
+  }
+  /* The bank text, once its pictures pass checkBankImages. Text that
+     doesn't parse is passed on, for loadUnitText to explain. */
+  function checkedBankText(text) {
+    var split;
+    try { split = splitImageSection(text); } catch (err) { return Promise.resolve(text); }
+    return checkBankImages(split.images).then(function () { return text; });
+  }
+
   /* A zip's bytes → the bank's text with its images attached. */
   function unitTextFromZip(bytes) {
     if (bytes.length > MAX_ZIP_BYTES) return Promise.reject(new Error("This .zip is too large (the limit is 40 MB)."));
@@ -403,18 +459,19 @@
       // in the zip replace those questions' pictures only.
       var split = splitImageSection(r.text);
       var text = split.text;
-      if (text.length > MAX_BANK_BYTES) throw new Error("The unit file in this .zip is too large (the limit is 5 MB of text).");
+      if (utf8Bytes(text) > MAX_BANK_BYTES) throw new Error("The unit file in this .zip is too large (the limit is 5 MB of text).");
       return measureAll(r.images, 4).then(function (loose) {
         var result = {}, urls = [];
         Object.keys(split.images).forEach(function (n) { result[n] = split.images[n]; });
         Object.keys(loose).forEach(function (n) { result[n] = loose[n]; urls.push({ src: loose[n].src, url: loose[n].blobUrl }); });
         urls = urls.filter(function (u) { return u.url; });
-        var bundled = bundleImages(text, result);
-        if (bundled.length > MAX_BUNDLE_BYTES) {
-          dropBlobUrls(urls);
-          throw new Error("This bank and its pictures add up to more than 40 MB. Make the pictures smaller.");
-        }
-        return { text: bundled, count: Object.keys(result).length, urls: urls };
+        // The pictures kept from the unit file are checked too, and every
+        // picture counts toward the total.
+        return checkBankImages(result).then(function () {
+          var bundled = bundleImages(text, result);
+          if (utf8Bytes(bundled) > MAX_BUNDLE_BYTES) throw new Error("This bank and its pictures add up to more than 40 MB. Make the pictures smaller.");
+          return { text: bundled, count: Object.keys(result).length, urls: urls };
+        }).catch(function (err) { dropBlobUrls(urls); throw err; });
       });
     });
   }
@@ -526,11 +583,14 @@
     img.alt = "Picture for this question";
     img.draggable = false;
     img.decoding = "async";
+    var missing = function () {
+      img.alt = "This picture couldn't be loaded";
+      img.classList.add("img-missing");
+    };
+    // A picture that's fetched but can't be shown is marked the same way.
+    img.addEventListener("error", missing);
     var load = function () {
-      imageUrl(question.image).then(function (u) { img.src = u; }, function () {
-        img.alt = "This picture couldn't be loaded";
-        img.classList.add("img-missing");
-      });
+      imageUrl(question.image).then(function (u) { img.src = u; }, missing);
     };
     if (lazy) { img.loading = "lazy"; whenNearView(img, load); } else load();
     return img;
@@ -611,6 +671,8 @@
     pad.addEventListener("keydown", function (event) {
       // A minigame owns the keys while it's up (its arrows and Space/Enter).
       if (api.locked || (game && game.minigame)) return;
+      // Shortcuts with Ctrl, Alt or Cmd aren't the pad's.
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
       var k = event.key, step = event.shiftKey ? 0.5 : 2.5;
       var d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[k];
       if (d) {
@@ -625,6 +687,9 @@
       } else if (k === "Enter" || k === " ") {
         event.preventDefault();
         event.stopPropagation();
+        // A held key repeats: only a fresh press shows or picks, so holding
+        // it can't answer this question (or the next one, which gets focus).
+        if (event.repeat) return;
         if (!api.cursor) {
           // No cursor yet: show one in the middle to move from (and don't
           // let Space scroll the page).

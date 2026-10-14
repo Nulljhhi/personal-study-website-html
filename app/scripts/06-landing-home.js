@@ -39,15 +39,23 @@
     if (message) notifyError(message);
   }
 
+  /* Pictures the desktop app keeps in its picture folder can't be shown
+     in a plain browser; say so rather than show broken pictures. Every way
+     a bank comes in (a file, a saved session) checks this first. */
+  var DESKTOP_PICTURES_ERROR = "This bank's pictures are stored in the desktop app's picture folder, so they can only be shown there. Here, load the original .zip instead.";
+  function checkUnitUsableHere(unit) {
+    if (!hasDesktop && unit.questions.some(function (q) { return q.image && q.image.indexOf("asset:") === 0; })) {
+      var err = new Error(DESKTOP_PICTURES_ERROR);
+      err.explained = true;
+      throw err;
+    }
+  }
+
   function loadUnitText(text) {
     var unit;
     try {
       unit = parseUnitFile(text);
-      // Pictures the desktop app keeps in its picture folder can't be shown
-      // in a plain browser; say so rather than show broken pictures.
-      if (!hasDesktop && unit.questions.some(function (q) { return q.image && q.image.indexOf("asset:") === 0; })) {
-        throw new Error("This bank's pictures are stored in the desktop app's picture folder, so they can only be shown there. Here, load the original .zip instead.");
-      }
+      checkUnitUsableHere(unit);
     } catch (err) {
       var message = err && err.message ? err.message : "The unit file could not be read.";
       setLandingError(message);
@@ -107,7 +115,8 @@
       var text;
       try { text = checkedUnitText(decodeUnitBytes(new Uint8Array(reader.result), file.name), file.name); }
       catch (err) { setLandingError(err.message); return; }
-      loadUnitText(text);
+      checkedBankText(text).then(function (t) { if (isLatestImport(token)) loadUnitText(t); },
+        function (err) { if (isLatestImport(token)) setLandingError(err.message); });
     };
     reader.onerror = function () {
       if (isLatestImport(token)) setLandingError("The file could not be read.");
@@ -118,7 +127,7 @@
   /* The text of a unit file is at most 5 MB; pictures written into a saved
      bank don't count toward that. */
   function checkedUnitText(text, name) {
-    if (splitImageSection(text).text.length > MAX_BANK_BYTES) throw new Error("\"" + name + "\" is too large to be a unit file (the limit is 5 MB of text).");
+    if (utf8Bytes(splitImageSection(text).text) > MAX_BANK_BYTES) throw new Error("\"" + name + "\" is too large to be a unit file (the limit is 5 MB of text).");
     return text;
   }
 
@@ -158,7 +167,7 @@
       .then(function (text) {
         if (!isLatestImport(token)) return;
         try { text = checkedUnitText(text, paths[0].split(/[\\/]/).pop()); } catch (err) { notifyError(err.message); return; }
-        loadUnitText(text);
+        return checkedBankText(text).then(function (t) { if (isLatestImport(token)) loadUnitText(t); });
       })
       .catch(function (err) { if (isLatestImport(token)) notifyError(err.message); });
   }
@@ -207,13 +216,23 @@
   }
   function forceQuit() {
     quitForced = true;
-    return desktopCall("quit_app");
+    return desktopCall("quit_app", { force: true });
+  }
+  /* The last step of saving (making the files permanent on the disk)
+     happens in the app as it quits; if that fails, the window stays open. */
+  function finalSyncProblem(err) {
+    state.lastSaveError = err && err.message || String(err);
+    showQuitProblem(false);
+    return false;
   }
   function requestQuit() {
     return waitForSaves().then(function (r) {
-      if (r === true) return forceQuit();
-      showQuitProblem(r);
-      return false;
+      if (r !== true) { showQuitProblem(r); return false; }
+      quitForced = true;
+      return desktopCall("quit_app", { force: false }).catch(function (err) {
+        quitForced = false;
+        return finalSyncProblem(err);
+      });
     });
   }
   function setupQuitDialog() {
@@ -231,9 +250,12 @@
     Promise.resolve(win.onCloseRequested(function (event) {
       if (quitForced) return;
       return waitForSaves().then(function (r) {
-        if (r === true) return;
+        if (r === true) return desktopCall("finish_saves").then(function () { return "synced"; }, function (err) { return err; });
+        return r;
+      }).then(function (r) {
+        if (r === "synced") return;
         if (event && typeof event.preventDefault === "function") event.preventDefault();
-        showQuitProblem(r);
+        if (r instanceof Error || (r && r.message)) finalSyncProblem(r); else showQuitProblem(r);
       });
     })).catch(function () {});
   }

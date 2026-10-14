@@ -19,19 +19,16 @@ const check = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1
     highScores: { 'boss:rising': 50 }, games: { garden: { plants: { [qs[2]]: { stage: 3, due: 1, species: 'tomato', bloomed: false, waterings: 2 } }, coins: 7 } } });
   let page = await mk(v2);
   check((await page.textContent('#completed-summary')).startsWith('2 of'), 'v2 completions load: ' + await page.textContent('#completed-summary'));
-  // Trigger a save.
-  await page.evaluate(() => { window.StudyApp.state.highScores['x:1'] = 1; });
-  await page.click('#mode-quiz-btn'); await page.click('#quiz-start-btn'); await page.waitForTimeout(100);
-  const ans = await page.$$eval('#qa-list .qa-pair', els => Object.fromEntries(els.map(e => [e.querySelector('.qa-q').firstChild.textContent, e.querySelector('.qa-a').textContent])));
-  const q = await page.textContent('#quiz-question-text');
-  const tf = await page.isVisible('#tf-candidate');
-  if (tf) { const cand = await page.textContent('#tf-candidate'); await page.keyboard.press(cand === ans[q] ? 't' : 'f'); }
-  else { const btns = await page.$$('#quiz-choices button.choice'); for (let i = 0; i < btns.length; i++) if ((await btns[i].textContent()) === ans[q]) await page.keyboard.press(String(i + 1)); }
-  await page.click('#submit-quiz-btn'); await page.waitForTimeout(100);
-  if (await page.isVisible('#submit-continue-btn')) await page.click('#submit-continue-btn');
-  await page.waitForTimeout(300);
+  // A deliberate save (not a quiz answer: a random quiz can pick a question
+  // that's already completed, which rightly saves nothing).
+  await page.evaluate(() => { window.StudyApp.state.highScores['x:1'] = 1; return window.StudyApp.__test.flush(); });
   const writes = await page.evaluate(() => window.__w);
-  const saved = JSON.parse(writes[writes.length - 1] || '{}');
+  check(writes.length === 1, 'a changed bank is saved: ' + writes.length + ' write(s)');
+  if (!writes.length) { await b.close(); return; }
+  const saved = JSON.parse(writes[writes.length - 1]);
+  // Nothing changed since: no second write.
+  await page.evaluate(() => window.StudyApp.__test.flush());
+  check((await page.evaluate(() => window.__w.length)) === 1, 'an unchanged bank is not saved again');
   check(saved.version === 3 && saved.schemas && saved.schemas.garden === 2, 'saved as version 3 with schemas');
   check(saved.completed.length >= 2 && saved.completed.every(k => /^k1:[0-9a-f]{28}$/.test(k)), 'keys hashed: ' + saved.completed.slice(0, 2).join(','));
   const plantKeys = Object.keys(saved.games.garden.plants);

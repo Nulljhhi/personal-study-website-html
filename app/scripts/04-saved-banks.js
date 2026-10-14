@@ -189,9 +189,13 @@
         var batch = chunk.map(function (i) { return metas[i]; });
         return desktopCall("read_banks", { names: batch.map(function (m) { return m[0]; }) })
           .then(function (rows) {
-            // Anything but one answer per bank: read them one at a time.
-            if (!Array.isArray(rows) || rows.length !== batch.length) return mapLimited(batch, 4, readOne);
-            return batch.map(function (m, k) { var r = rows[k] || ["", "", "missing"]; return describeRead(m[0], m[1], r[0], r[1], r[2]); });
+            // Anything but a list of answers in order: read them one at a time.
+            if (!Array.isArray(rows) || rows.length > batch.length || !rows.every(Array.isArray)) return mapLimited(batch, 4, readOne);
+            var got = rows.map(function (r, k) { return describeRead(batch[k][0], batch[k][1], r[0], r[1], r[2]); });
+            // A batch stops early at its size budget (old banks holding
+            // their pictures): keep what came, read only the rest.
+            if (rows.length === batch.length) return got;
+            return mapLimited(batch.slice(rows.length), 4, readOne).then(function (rest) { return got.concat(rest); });
           }, function () { return mapLimited(batch, 4, readOne); })
           .then(function (infos) {
             infos.forEach(function (info, k) {
@@ -363,6 +367,7 @@
   function openSavedBank(name) {
     var token = nextImport();
     desktopCall("read_bank", { name: name })
+      .then(checkedBankText)
       .then(function (text) {
         if (!isLatestImport(token)) return;
         var result = loadUnitText(text);
@@ -416,12 +421,30 @@
         return keys(parseUnitFile(text)) === keys(state.unit);
       } catch (err) { return false; }
     };
-    var release;
-    if (isOpen) state.progressHold = new Promise(function (r) { release = r; });
+    var release = null;
     var op = trackOperation();
-    (isOpen ? flushSaves(op.promise) : Promise.resolve())
+    // This bank's progress has to be on disk first: the rename moves the
+    // file, and a save still waiting under the old title would bring the
+    // old title's progress back later.
+    var pending = function () { return unsaved.has(item.title) || (isOpen && !!state.lastSaveError); };
+    (isOpen || pending() ? flushSaves(op.promise) : Promise.resolve())
+      .then(function () {
+        if (pending()) {
+          var why = (unsaved.get(item.title) || {}).error || state.lastSaveError;
+          throw new Error("This bank's progress couldn't be saved" + (why ? " (" + why + ")" : "") + ", so it wasn't renamed. Try again once saving works.");
+        }
+        if (!isOpen) return;
+        state.progressHold = new Promise(function (r) { release = r; });
+        // A save that started in the meantime finishes first.
+        return Promise.resolve(saveQueued || saveInFlight).then(function (ok) {
+          if (ok === false || pending()) throw new Error("This bank's progress couldn't be saved, so it wasn't renamed. Try again once saving works.");
+        });
+      })
       .then(function () { return desktopCall("rename_bank", { name: item.name, newTitle: newTitle }); })
       .then(function (result) {
+        // Nothing is left to write under the old title.
+        unsaved.delete(item.title);
+        delete lastWritten[item.title];
         hideBankRename();
         notify("Renamed to " + newTitle + ".");
         if (result[2]) notifyError(result[2]);
@@ -443,7 +466,7 @@
       })
       .catch(function (err) { notifyError(err.message); })
       .then(function () {
-        if (!isOpen) return true;
+        if (!release) return true;
         state.progressHold = null;
         release();
         // Anything that had to wait is saved now, under the new title.
