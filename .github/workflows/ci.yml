@@ -1,0 +1,86 @@
+# Checks every push and pull request: the built page matches its sources,
+# the scripts pass their checks, the tests pass in Chromium (and, for
+# information, in WebKit), and the Rust tests pass on Linux, Windows and
+# macOS. Releases run the same checks again (release.yml).
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2"
+
+      - name: src/index.html matches the sources in app/
+        run: node tools/build.js --check
+
+      - name: Install test dependencies
+        working-directory: tests
+        run: npm ci --no-audit --no-fund
+
+      - name: Script checks (shared scope, standalone core and zip worker)
+        run: node tools/check-scripts.js
+
+      - name: Tests (Playwright + Chromium, and the core in plain Node)
+        working-directory: tests
+        run: |
+          npx playwright install --with-deps chromium
+          npm test
+
+  # WebKit is the engine closest to the desktop app on Linux and macOS.
+  # Not required yet: it reports differences without blocking a merge.
+  webkit:
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2"
+
+      - name: Tests in WebKit
+        working-directory: tests
+        env:
+          PW_BROWSER: webkit
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps webkit
+          npm test
+
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@1.95.0
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      # Saving, renaming, recovery and the picture store, against real
+      # folders on each system (file locking and sync differ on Windows).
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --locked

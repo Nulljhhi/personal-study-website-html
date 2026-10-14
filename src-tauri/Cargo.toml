@@ -1,6 +1,6 @@
 [package]
 name = "study-website"
-version = "1.0.0"
+version = "1.9.1"
 description = "Study Website desktop app"
 edition = "2021"
 
@@ -9,6 +9,12 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+base64 = "0.22"
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["time"] }
 
 [profile.release]
 strip = true

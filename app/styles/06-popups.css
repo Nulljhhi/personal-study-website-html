@@ -1,0 +1,98 @@
+  /* Instant feedback */
+  .quiz-choices.locked button.choice { pointer-events: none; }
+  .quiz-feedback { font-size: 21px; font-weight: 700; margin: 4px 0 0; min-height: 1.4em; }
+  .quiz-feedback:empty { display: none; }
+  .quiz-feedback.right { color: var(--success-strong); }
+  .quiz-feedback.wrong { color: var(--danger-strong); }
+
+  /* Rename popup text field */
+  .text-input {
+    font: inherit;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    margin-top: 4px;
+  }
+  .modal-box { max-width: 520px; }
+  .modal-box .options-error { margin: 8px 0 14px; min-height: 0; }
+
+  /* Popup messages (bottom-left) and Home stat boxes share one look:
+     a small card with text and a blue bar along the bottom. */
+  #toast-stack {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    z-index: 60;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    max-width: 440px;
+    pointer-events: none;
+  }
+  .toast, .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    box-shadow: var(--glow-neutral-strong);
+    padding: 10px 14px 12px;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 15px;
+    overflow-wrap: anywhere;
+  }
+  .toast { pointer-events: none; animation: toast-in 180ms ease-out; }
+  /* In a game the popups sit in the HUD row (top right), clear of the arena and answers. */
+  /* In a game, popups sit bottom-left under the side panel; wide-map games
+     (whose panel fills the height) put them top-right in the HUD row instead. */
+  body[data-screen="game"] #toast-stack { max-width: 380px; }
+  body[data-screen="game"].wide-game #toast-stack { left: auto; right: 200px; top: 10px; bottom: auto; flex-direction: column; max-width: 560px; }
+  body[data-screen="game"] .toast { font-size: 13.5px; opacity: .96; }
+  body[data-screen="game"].board-on:not(.wide-game) #toast-stack { bottom: 104px; }
+  .toast.error { color: var(--danger-strong); }
+  .toast-bar, .stat-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--primary);
+    margin-top: 8px;
+  }
+  .toast.error .toast-bar { background: var(--danger-strong); }
+  .toast-bar { width: 100%; animation: toast-bar linear forwards; }
+  .toast.leaving { opacity: 0; transition: opacity 200ms ease; }
+  @keyframes toast-bar { from { width: 100%; } to { width: 0%; } }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .stat-box { margin: 0 0 12px; }
+  .stat-track { background: var(--surface-2); border-radius: 2px; margin-top: 8px; }
+  .stat-track .stat-bar { margin-top: 0; width: 0; transition: width 400ms ease; }
+  .stat-box .stat-label { color: var(--text-muted); font-weight: 600; font-size: 13px; display: block; margin-bottom: 2px; }
+  .landing-error:empty, .options-error:empty { display: none; }
+
+  /* Reduced motion: every color/shadow motion is switched off. */
+  @media (prefers-reduced-motion: reduce) {
+    .toast { animation: none; }
+
+    body, button, input, fieldset, .drop-zone, .docs-content, .docs-content code, .docs-content pre, .docs-content th, .docs-content td, .qa-pair, #flashcard-card, .tile, .tf-candidate, .review-item, .review-candidate, .review-choice, .modal-box, #board-complete, #quiz-count, .subtitle, .drop-hint, .modal-hint, .review-number, .qa-a, .landing-error, .options-error, .not-answered-note {
+      transition: none;
+    }
+  }
+
+  /* Save status (bottom right): "Saving…", then "Saved" briefly, or
+     "Not saved" until a save works again. */
+  .save-status {
+    position: fixed;
+    right: 14px;
+    bottom: 12px;
+    z-index: 55;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border);
+    color: var(--text-muted, inherit);
+    pointer-events: none;
+  }
+  .save-status.failed { color: var(--danger-strong); border-color: var(--danger); pointer-events: auto; }
+  body[data-screen="game"] .save-status:not(.failed) { display: none; }

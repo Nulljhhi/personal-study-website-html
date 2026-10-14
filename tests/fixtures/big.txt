@@ -1,0 +1,325 @@
+unit_title: ISPOR MFN Policies Explained; January-February 2026
+
+question: Supply price rebate reference savings threshold savings oecd medicaid reference number 0?
+answer: Policy oecd country policy threshold rebate A0.
+medium_fake_answer_1: Manufacturer supply reference executive policy policy policy pharmaceutical M1.
+medium_fake_answer_2: Oecd medicaid country M2.
+medium_fake_answer_3: Policy reserve manufacturer threshold savings pharmaceutical manufacturer order M3.
+hard_fake_answer_1: Manufacturer threshold framework policy H1.
+hard_fake_answer_2: Pharmaceutical reference pricing framework reference executive H2.
+hard_fake_answer_3: Reserve country reserve medicaid framework framework supply savings H3.
+
+question: Oecd supply drug savings manufacturer oecd country pricing order pharmaceutical order price threshold reserve reference pricing number 1?
+answer: Oecd order savings policy savings drug framework A1.
+medium_fake_answer_1: Supply supply oecd pricing pricing reserve manufacturer policy M1.
+medium_fake_answer_2: Medicaid pharmaceutical pharmaceutical manufacturer oecd reserve order supply order M2.
+medium_fake_answer_3: Rebate pharmaceutical policy oecd reserve international M3.
+hard_fake_answer_1: Pharmaceutical medicaid country drug savings order supply H1.
+hard_fake_answer_2: Medicaid reserve country savings order country order H2.
+hard_fake_answer_3: Pharmaceutical pharmaceutical executive H3.
+
+question: Policy manufacturer pricing pharmaceutical supply pricing price pharmaceutical rebate drug price price policy threshold policy number 2?
+answer: Rebate manufacturer rebate reference pricing order framework price pricing A2.
+medium_fake_answer_1: Rebate reserve pricing rebate M1.
+medium_fake_answer_2: Framework threshold executive savings savings reference policy framework M2.
+medium_fake_answer_3: Executive country medicaid rebate reference rebate M3.
+hard_fake_answer_1: Reserve medicaid country policy manufacturer policy oecd international H1.
+hard_fake_answer_2: Pricing threshold reserve H2.
+hard_fake_answer_3: Country pharmaceutical manufacturer reserve threshold manufacturer reserve policy H3.
+
+question: Supply executive country drug framework international medicaid drug framework price price framework framework pricing number 3?
+answer: Supply rebate international policy pharmaceutical drug A3.
+medium_fake_answer_1: Medicaid supply threshold pricing reserve drug oecd M1.
+medium_fake_answer_2: Order reference medicaid supply M2.
+medium_fake_answer_3: Country supply medicaid savings reference oecd framework reserve M3.
+hard_fake_answer_1: Policy executive oecd framework policy pricing H1.
+hard_fake_answer_2: Executive supply international executive H2.
+hard_fake_answer_3: Medicaid rebate reference oecd pharmaceutical order H3.
+
+question: Pharmaceutical savings pharmaceutical manufacturer price drug price international pricing pricing pharmaceutical medicaid rebate executive reserve rebate order executive number 4?
+answer: Reference framework manufacturer savings international A4.
+medium_fake_answer_1: Pharmaceutical reference executive drug country price oecd M1.
+medium_fake_answer_2: International international executive reference supply oecd price supply pharmaceutical M2.
+medium_fake_answer_3: Supply price rebate order M3.
+hard_fake_answer_1: Supply pharmaceutical reference threshold rebate H1.
+hard_fake_answer_2: Drug framework policy H2.
+hard_fake_answer_3: Policy price country reference drug medicaid manufacturer H3.
+
+question: Country pricing reference threshold pricing manufacturer pricing reference country oecd pharmaceutical framework pharmaceutical rebate savings executive reference number 5?
+answer: Executive drug policy policy A5.
+medium_fake_answer_1: Framework executive threshold oecd executive oecd price price executive M1.
+medium_fake_answer_2: Threshold reference rebate medicaid pharmaceutical savings order M2.
+medium_fake_answer_3: Pricing pharmaceutical medicaid framework medicaid M3.
+hard_fake_answer_1: Order price rebate price H1.
+hard_fake_answer_2: Threshold price supply executive manufacturer oecd framework drug executive H2.
+hard_fake_answer_3: Executive supply framework manufacturer H3.
+
+question: Reference pharmaceutical supply price manufacturer manufacturer policy manufacturer oecd price rebate pharmaceutical price number 6?
+answer: Price policy policy framework order savings savings international A6.
+medium_fake_answer_1: Reserve executive price M1.
+medium_fake_answer_2: Pricing pricing international international executive framework reference M2.
+medium_fake_answer_3: Reserve framework international medicaid international pharmaceutical drug executive M3.
+hard_fake_answer_1: Pharmaceutical medicaid pricing framework country pharmaceutical pricing drug manufacturer H1.
+hard_fake_answer_2: Price threshold country pharmaceutical rebate H2.
+hard_fake_answer_3: Threshold pharmaceutical threshold policy oecd executive pricing H3.
+
+question: Savings policy country supply policy drug order supply international supply international international number 7?
+answer: Rebate oecd supply oecd pricing A7.
+medium_fake_answer_1: Price manufacturer savings policy pricing reserve executive M1.
+medium_fake_answer_2: Threshold manufacturer manufacturer executive savings savings manufacturer M2.
+medium_fake_answer_3: Country executive pharmaceutical rebate manufacturer drug price reserve M3.
+hard_fake_answer_1: Order pricing reserve medicaid framework framework framework pharmaceutical H1.
+hard_fake_answer_2: Pricing threshold price reference reserve H2.
+hard_fake_answer_3: Oecd pricing international rebate country medicaid supply H3.
+
+question: Savings oecd order oecd reserve pricing pharmaceutical drug number 8?
+answer: Price rebate reference rebate price international price A8.
+medium_fake_answer_1: Manufacturer oecd country oecd pricing executive M1.
+medium_fake_answer_2: International savings medicaid reference country pharmaceutical M2.
+medium_fake_answer_3: Reference framework rebate manufacturer oecd pharmaceutical M3.
+hard_fake_answer_1: Medicaid reserve threshold H1.
+hard_fake_answer_2: Policy policy manufacturer rebate medicaid pricing framework H2.
+hard_fake_answer_3: Pharmaceutical medicaid rebate framework H3.
+
+question: Rebate threshold pricing pharmaceutical order savings country reference medicaid supply oecd medicaid framework reference policy reference supply number 9?
+answer: Policy pharmaceutical framework international price reserve order supply A9.
+medium_fake_answer_1: Framework country reserve order reserve executive policy reference threshold M1.
+medium_fake_answer_2: Threshold order framework pharmaceutical oecd executive supply savings M2.
+medium_fake_answer_3: Oecd oecd medicaid M3.
+hard_fake_answer_1: Policy rebate reserve medicaid threshold reserve country H1.
+hard_fake_answer_2: Framework pricing threshold reserve medicaid order reserve policy H2.
+hard_fake_answer_3: Oecd supply country oecd executive supply price savings H3.
+
+question: Framework policy country international oecd rebate pricing price policy order rebate number 10?
+answer: Country pharmaceutical framework international threshold rebate savings pricing threshold A10.
+medium_fake_answer_1: Drug rebate reserve reference supply country price M1.
+medium_fake_answer_2: Price threshold policy pricing reserve M2.
+medium_fake_answer_3: Pricing price oecd rebate framework medicaid reserve medicaid M3.
+hard_fake_answer_1: Executive rebate price price H1.
+hard_fake_answer_2: Reserve order threshold reserve pharmaceutical drug pricing framework H2.
+hard_fake_answer_3: Pharmaceutical rebate order manufacturer oecd pharmaceutical oecd pricing H3.
+
+question: Rebate executive manufacturer rebate manufacturer policy oecd executive country manufacturer rebate medicaid price pricing supply number 11?
+answer: Supply international rebate threshold reserve pricing A11.
+medium_fake_answer_1: International threshold order framework M1.
+medium_fake_answer_2: Oecd manufacturer reference medicaid framework price reference manufacturer oecd M2.
+medium_fake_answer_3: Savings reference pricing drug drug M3.
+hard_fake_answer_1: Policy medicaid drug savings reserve threshold executive rebate reference H1.
+hard_fake_answer_2: Pricing reference manufacturer oecd manufacturer savings threshold H2.
+hard_fake_answer_3: Pricing manufacturer manufacturer framework threshold pharmaceutical H3.
+
+question: Oecd medicaid threshold rebate executive savings supply reference medicaid price drug policy policy savings executive oecd supply number 12?
+answer: Medicaid oecd pricing international policy A12.
+medium_fake_answer_1: Oecd international pharmaceutical M1.
+medium_fake_answer_2: Supply oecd rebate M2.
+medium_fake_answer_3: Price threshold framework policy M3.
+hard_fake_answer_1: Pharmaceutical drug reserve H1.
+hard_fake_answer_2: International drug rebate reference country price medicaid policy savings H2.
+hard_fake_answer_3: International rebate medicaid threshold oecd executive rebate rebate H3.
+
+question: Manufacturer manufacturer drug supply supply pricing order country pharmaceutical reserve drug order pharmaceutical country pharmaceutical medicaid pharmaceutical country number 13?
+answer: Price rebate price rebate pricing reference international drug A13.
+medium_fake_answer_1: Country drug drug price M1.
+medium_fake_answer_2: Reserve savings reserve order reference executive drug international pharmaceutical M2.
+medium_fake_answer_3: Threshold international oecd M3.
+hard_fake_answer_1: Threshold policy reserve rebate price rebate executive price framework H1.
+hard_fake_answer_2: Oecd drug rebate H2.
+hard_fake_answer_3: International rebate oecd reference framework H3.
+
+question: Country manufacturer reserve pharmaceutical medicaid executive executive reserve oecd number 14?
+answer: Savings reference international threshold reserve pharmaceutical supply A14.
+medium_fake_answer_1: Reserve pharmaceutical policy framework pricing medicaid order oecd M1.
+medium_fake_answer_2: Executive reference country order international supply price M2.
+medium_fake_answer_3: Framework pharmaceutical executive M3.
+hard_fake_answer_1: Framework executive order rebate executive reserve H1.
+hard_fake_answer_2: Policy reserve reference international executive executive executive H2.
+hard_fake_answer_3: Price threshold rebate savings threshold order oecd H3.
+
+question: Supply drug international drug reserve savings supply rebate manufacturer number 15?
+answer: Supply executive order order oecd framework threshold executive A15.
+medium_fake_answer_1: Reserve pricing policy international rebate manufacturer supply M1.
+medium_fake_answer_2: Reference pricing country drug M2.
+medium_fake_answer_3: Reference pharmaceutical rebate reference medicaid rebate price supply reserve M3.
+hard_fake_answer_1: Price price medicaid pricing reserve country policy supply H1.
+hard_fake_answer_2: Savings framework manufacturer medicaid savings H2.
+hard_fake_answer_3: Manufacturer country threshold order pharmaceutical medicaid savings price rebate H3.
+
+question: Medicaid policy pharmaceutical oecd reserve savings price oecd reserve supply supply country drug order number 16?
+answer: Threshold policy medicaid framework policy pharmaceutical reference framework reserve A16.
+medium_fake_answer_1: Executive pharmaceutical supply pharmaceutical framework reserve country pharmaceutical M1.
+medium_fake_answer_2: Reserve country supply framework threshold framework international reserve threshold M2.
+medium_fake_answer_3: International pharmaceutical pricing rebate policy country supply M3.
+hard_fake_answer_1: Order country oecd H1.
+hard_fake_answer_2: Policy price price policy oecd H2.
+hard_fake_answer_3: Threshold rebate order savings executive H3.
+
+question: Threshold reference savings order international country international policy pricing rebate order international supply framework number 17?
+answer: Rebate reserve framework country rebate country A17.
+medium_fake_answer_1: Savings medicaid savings oecd country M1.
+medium_fake_answer_2: Price international medicaid M2.
+medium_fake_answer_3: Manufacturer policy reference rebate M3.
+hard_fake_answer_1: Savings reference oecd pricing H1.
+hard_fake_answer_2: Policy price country drug pharmaceutical medicaid pharmaceutical country order H2.
+hard_fake_answer_3: Reference pharmaceutical country H3.
+
+question: Reference rebate rebate pricing savings drug medicaid price oecd reference threshold framework reserve savings oecd reference savings reference number 18?
+answer: Oecd medicaid pricing reserve A18.
+medium_fake_answer_1: Country pharmaceutical framework savings pharmaceutical M1.
+medium_fake_answer_2: Executive savings reference policy M2.
+medium_fake_answer_3: Order rebate drug pharmaceutical threshold framework reference manufacturer reserve M3.
+hard_fake_answer_1: Rebate manufacturer country international international H1.
+hard_fake_answer_2: Medicaid country pharmaceutical drug pharmaceutical H2.
+hard_fake_answer_3: Reserve international country rebate rebate savings framework rebate savings H3.
+
+question: Savings order savings manufacturer executive pricing pricing supply threshold pharmaceutical international number 19?
+answer: Reserve executive reserve A19.
+medium_fake_answer_1: International medicaid executive savings savings executive reference international M1.
+medium_fake_answer_2: Rebate manufacturer price pharmaceutical M2.
+medium_fake_answer_3: Drug supply pricing reference manufacturer supply medicaid reserve supply M3.
+hard_fake_answer_1: Framework country executive policy policy framework manufacturer price H1.
+hard_fake_answer_2: Manufacturer rebate executive rebate reserve oecd policy reference H2.
+hard_fake_answer_3: Order international reference rebate international H3.
+
+question: Supply drug order price price reference framework executive manufacturer rebate reserve drug order policy price international oecd order number 20?
+answer: Manufacturer reference executive rebate policy reserve executive reference A20.
+medium_fake_answer_1: International rebate oecd price supply M1.
+medium_fake_answer_2: Reserve savings supply country pharmaceutical oecd framework M2.
+medium_fake_answer_3: Framework pharmaceutical international drug M3.
+hard_fake_answer_1: Reserve reference pricing manufacturer medicaid country rebate H1.
+hard_fake_answer_2: Policy rebate pharmaceutical rebate reserve rebate savings H2.
+hard_fake_answer_3: Oecd reference order price H3.
+
+question: Pharmaceutical order pharmaceutical pharmaceutical reserve supply policy framework threshold international international price supply international medicaid savings executive order number 21?
+answer: Pricing international oecd threshold oecd A21.
+medium_fake_answer_1: International rebate framework M1.
+medium_fake_answer_2: Policy pharmaceutical policy international oecd pharmaceutical reference threshold M2.
+medium_fake_answer_3: Country country rebate M3.
+hard_fake_answer_1: Country oecd threshold drug reference H1.
+hard_fake_answer_2: Drug policy drug reference supply international H2.
+hard_fake_answer_3: Reserve order pharmaceutical rebate supply order savings H3.
+
+question: Manufacturer reference pharmaceutical order pricing reference drug executive country order rebate number 22?
+answer: Drug country country oecd order framework executive threshold A22.
+medium_fake_answer_1: Manufacturer reserve international drug executive reference reserve pricing pharmaceutical M1.
+medium_fake_answer_2: Savings executive reference supply policy savings medicaid oecd M2.
+medium_fake_answer_3: Pricing oecd manufacturer reference manufacturer executive executive manufacturer M3.
+hard_fake_answer_1: Threshold savings order savings medicaid country threshold oecd pharmaceutical H1.
+hard_fake_answer_2: Supply savings rebate H2.
+hard_fake_answer_3: International international policy oecd country reference policy price pricing H3.
+
+question: Oecd reserve framework international international reserve reference rebate policy threshold oecd manufacturer pharmaceutical oecd policy number 23?
+answer: Manufacturer country pricing pricing executive manufacturer price A23.
+medium_fake_answer_1: Pharmaceutical pharmaceutical pricing pricing oecd supply policy reserve medicaid M1.
+medium_fake_answer_2: Manufacturer drug reserve medicaid reserve pharmaceutical M2.
+medium_fake_answer_3: Manufacturer oecd threshold M3.
+hard_fake_answer_1: Supply drug oecd H1.
+hard_fake_answer_2: Pharmaceutical reference savings H2.
+hard_fake_answer_3: Reserve manufacturer policy H3.
+
+question: Framework threshold rebate country pricing international pharmaceutical executive number 24?
+answer: Pharmaceutical threshold reserve country pharmaceutical pricing oecd oecd medicaid A24.
+medium_fake_answer_1: Rebate order international rebate supply rebate M1.
+medium_fake_answer_2: Pricing price order executive international rebate rebate rebate order M2.
+medium_fake_answer_3: Rebate supply threshold policy international international M3.
+hard_fake_answer_1: Manufacturer medicaid price supply pharmaceutical H1.
+hard_fake_answer_2: Medicaid pharmaceutical country manufacturer supply international pharmaceutical H2.
+hard_fake_answer_3: Oecd medicaid price price international drug H3.
+
+question: Oecd oecd country international supply international pharmaceutical pharmaceutical number 25?
+answer: Manufacturer oecd international A25.
+medium_fake_answer_1: Medicaid oecd order pricing manufacturer M1.
+medium_fake_answer_2: International order savings pharmaceutical framework M2.
+medium_fake_answer_3: Reserve framework medicaid M3.
+hard_fake_answer_1: Threshold policy framework supply reference order threshold rebate H1.
+hard_fake_answer_2: Drug drug executive pricing international reference reference H2.
+hard_fake_answer_3: Country supply manufacturer medicaid reserve reserve oecd reference medicaid H3.
+
+question: Reserve international supply rebate policy reference medicaid supply oecd savings pharmaceutical manufacturer rebate drug number 26?
+answer: Pricing pharmaceutical reserve manufacturer country rebate country oecd A26.
+medium_fake_answer_1: Savings reference international pricing pharmaceutical M1.
+medium_fake_answer_2: Threshold drug savings M2.
+medium_fake_answer_3: Oecd pharmaceutical executive manufacturer M3.
+hard_fake_answer_1: Price drug country H1.
+hard_fake_answer_2: Threshold medicaid pricing reserve medicaid reserve oecd reserve order H2.
+hard_fake_answer_3: Manufacturer order supply price H3.
+
+question: Drug threshold drug pricing international framework savings drug supply reserve price supply oecd number 27?
+answer: Oecd reserve supply A27.
+medium_fake_answer_1: Framework oecd rebate order savings drug pharmaceutical savings M1.
+medium_fake_answer_2: Country framework supply M2.
+medium_fake_answer_3: Executive international supply pharmaceutical rebate price order country M3.
+hard_fake_answer_1: Reserve policy supply supply reference drug H1.
+hard_fake_answer_2: Reserve policy reference executive executive order pharmaceutical H2.
+hard_fake_answer_3: Order supply price H3.
+
+question: Price pharmaceutical threshold executive reserve pharmaceutical policy pricing executive order medicaid international supply international supply number 28?
+answer: Oecd executive reserve A28.
+medium_fake_answer_1: Order executive rebate order drug price M1.
+medium_fake_answer_2: Manufacturer rebate oecd pharmaceutical framework supply price price pricing M2.
+medium_fake_answer_3: Country price international framework pharmaceutical M3.
+hard_fake_answer_1: Rebate manufacturer medicaid reference rebate savings drug reserve H1.
+hard_fake_answer_2: Medicaid pharmaceutical price pharmaceutical executive H2.
+hard_fake_answer_3: Framework reserve international drug threshold H3.
+
+question: Drug policy executive country pricing pharmaceutical drug supply reserve country pricing medicaid manufacturer number 29?
+answer: Supply international supply A29.
+medium_fake_answer_1: Reference rebate threshold medicaid drug order threshold M1.
+medium_fake_answer_2: Order manufacturer policy policy savings M2.
+medium_fake_answer_3: Pricing rebate pharmaceutical M3.
+hard_fake_answer_1: Policy manufacturer price H1.
+hard_fake_answer_2: Pricing drug reserve medicaid medicaid threshold framework H2.
+hard_fake_answer_3: Savings reserve order executive H3.
+
+question: Price medicaid pricing medicaid framework supply country savings order policy savings policy reference supply number 30?
+answer: Country supply executive executive price country medicaid reserve A30.
+medium_fake_answer_1: Savings supply pharmaceutical reserve savings supply threshold savings pricing M1.
+medium_fake_answer_2: Rebate reserve framework supply oecd pharmaceutical rebate rebate framework M2.
+medium_fake_answer_3: Drug threshold threshold M3.
+hard_fake_answer_1: Manufacturer reserve threshold medicaid savings H1.
+hard_fake_answer_2: International oecd country drug reference H2.
+hard_fake_answer_3: Policy rebate pharmaceutical drug framework H3.
+
+question: Policy executive executive framework supply drug medicaid price executive reference price international framework country number 31?
+answer: Executive manufacturer policy pricing reserve supply order A31.
+medium_fake_answer_1: Framework oecd country reserve threshold M1.
+medium_fake_answer_2: Price medicaid country manufacturer drug manufacturer manufacturer manufacturer oecd M2.
+medium_fake_answer_3: Medicaid international framework order policy framework M3.
+hard_fake_answer_1: Savings pricing international policy order country H1.
+hard_fake_answer_2: Executive reserve savings executive reference supply framework H2.
+hard_fake_answer_3: Pharmaceutical rebate country policy framework price savings reference reserve H3.
+
+question: Rebate country order manufacturer drug reference reserve reserve reserve pricing international number 32?
+answer: Drug price medicaid policy drug A32.
+medium_fake_answer_1: Policy price drug policy drug pharmaceutical M1.
+medium_fake_answer_2: Executive policy policy pharmaceutical medicaid M2.
+medium_fake_answer_3: Medicaid rebate framework supply pharmaceutical reserve M3.
+hard_fake_answer_1: Manufacturer pricing medicaid oecd drug H1.
+hard_fake_answer_2: Pharmaceutical threshold drug executive H2.
+hard_fake_answer_3: Country reference policy supply pricing H3.
+
+question: Price pricing medicaid manufacturer pricing framework reference drug executive international price threshold international manufacturer drug framework number 33?
+answer: Drug supply price threshold medicaid A33.
+medium_fake_answer_1: Manufacturer pricing reference drug medicaid drug reference price manufacturer M1.
+medium_fake_answer_2: Rebate reserve country manufacturer drug M2.
+medium_fake_answer_3: Rebate medicaid executive order order threshold oecd oecd M3.
+hard_fake_answer_1: Country manufacturer savings H1.
+hard_fake_answer_2: Pricing reference manufacturer price country H2.
+hard_fake_answer_3: Pharmaceutical framework executive order country H3.
+
+question: Order order executive oecd savings reserve policy order international framework pricing framework supply international pharmaceutical number 34?
+answer: International pricing threshold international international pricing price rebate A34.
+medium_fake_answer_1: Order executive pricing rebate M1.
+medium_fake_answer_2: Savings framework price country international pharmaceutical order threshold reference M2.
+medium_fake_answer_3: International executive price pricing savings pharmaceutical drug drug medicaid M3.
+hard_fake_answer_1: Order order reserve order reserve order executive reference H1.
+hard_fake_answer_2: Oecd drug rebate medicaid H2.
+hard_fake_answer_3: Manufacturer framework executive H3.
+
+question: Oecd manufacturer order drug manufacturer framework supply policy medicaid reference international manufacturer order reserve rebate international pricing number 35?
+answer: Price framework supply reserve A35.
+medium_fake_answer_1: Pharmaceutical pharmaceutical country threshold supply reserve savings M1.
+medium_fake_answer_2: Reserve order medicaid country M2.
+medium_fake_answer_3: Price rebate medicaid manufacturer international international medicaid policy pricing M3.
+hard_fake_answer_1: Order pricing drug order price manufacturer H1.
+hard_fake_answer_2: Medicaid price threshold medicaid executive pricing supply policy H2.
+hard_fake_answer_3: Executive savings pharmaceutical drug H3.

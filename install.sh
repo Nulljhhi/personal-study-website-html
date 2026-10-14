@@ -14,12 +14,23 @@ mkdir -p ~/.local/bin ~/.local/share/applications ~/.local/share/icons/hicolor/5
 install -m 755 "$BIN" ~/.local/bin/study-website
 install -m 644 src-tauri/icons/icon.png ~/.local/share/icons/hicolor/512x512/apps/study-website.png
 
+# Desktop entries need the path quoted (a home folder can contain spaces),
+# with \ " ` and $ escaped inside the quotes, backslashes escaped again as
+# a string value, and % doubled (see the Desktop Entry spec, "Exec key").
+EXEC_PATH="$HOME/.local/bin/study-website"
+EXEC_PATH="${EXEC_PATH//\\/\\\\}"
+EXEC_PATH="${EXEC_PATH//\"/\\\"}"
+EXEC_PATH="${EXEC_PATH//\`/\\\`}"
+EXEC_PATH="${EXEC_PATH//\$/\\\$}"
+EXEC_PATH="${EXEC_PATH//\\/\\\\}" # then the string-value escape on top
+EXEC_PATH="${EXEC_PATH//%/%%}"
+
 cat > ~/.local/share/applications/study-website.desktop <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Study Website
 Comment=Flashcards, quizzes, and exams from your question banks
-Exec=$HOME/.local/bin/study-website
+Exec="$EXEC_PATH"
 Icon=study-website
 Categories=Education;
 Terminal=false

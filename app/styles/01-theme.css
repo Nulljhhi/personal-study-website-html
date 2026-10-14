@@ -1,0 +1,161 @@
+  /* Single style block: a token-driven light/dark theme system. Every
+     color lives in the :root / :root[data-theme="dark"] token blocks
+     below; every other rule consumes them through var(). Motion is
+     limited to short color/shadow transitions, and the reduced-motion
+     guard at the bottom switches them off entirely. */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  /* ---------- Design tokens: light theme (the default) ---------- */
+  :root {
+    color-scheme: light;
+    --bg: #eef1f6;
+    --surface: #ffffff;
+    --surface-hover: #f0f4fa;
+    --surface-2: #f4f6fa;
+    --border: #d5dbe5;
+    --border-strong: #b9c2d0;
+    --text: #1f2430;
+    --text-muted: #55607a;
+    --primary: #2f6fed;
+    --primary-hover: #2558b8;
+    --primary-text: #ffffff;
+    --success: #2e7d32;
+    --success-strong: #256b29;
+    --danger: #d93025;
+    --danger-strong: #b3261e;
+    --focus-ring: #1d4ed8;
+    --glow-primary: 0 2px 10px rgba(47, 111, 237, 0.30);
+    --glow-primary-strong: 0 4px 18px rgba(47, 111, 237, 0.45);
+    --glow-success: 0 3px 14px rgba(37, 107, 41, 0.35);
+    --glow-danger: 0 3px 14px rgba(179, 38, 30, 0.35);
+    --glow-neutral: 0 1px 3px rgba(31, 42, 68, 0.18);
+    --glow-neutral-strong: 0 3px 10px rgba(31, 42, 68, 0.22);
+    --glow-card: 0 10px 28px rgba(47, 111, 237, 0.10), 0 4px 12px rgba(31, 42, 68, 0.10);
+    --overlay: rgba(15, 18, 25, 0.55);
+    --shadow-modal: 0 12px 34px rgba(15, 18, 25, 0.28);
+    --selected-bg: #e8f0fe;
+    --on-danger: #ffffff;
+    --home-chip-bg: #454c59;
+    --home-chip-hover: #333944;
+    --home-chip-text: #ffffff;
+    --disabled-bg: #d9dee7;
+    --disabled-border: #c6ccd6;
+    --disabled-text: #79818f;
+    --code-bg: #1f2430;
+    --code-text: #e8ecf3;
+  }
+
+  /* ---------- Design tokens: dark theme overrides ---------- */
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #131823;
+    --surface: #1b2330;
+    --surface-hover: #242e3e;
+    --surface-2: #293546;
+    --border: #333f52;
+    --border-strong: #46566e;
+    --text: #e9edf5;
+    --text-muted: #a6b3c9;
+    --primary: #5b9bff;
+    --primary-hover: #7db2ff;
+    --primary-text: #0c1526;
+    --success: #34c98a;
+    --success-strong: #3ecf8e;
+    --danger: #ff5d52;
+    --danger-strong: #ff6f64;
+    --focus-ring: #8ab8ff;
+    --glow-primary: 0 2px 12px rgba(91, 155, 255, 0.38);
+    --glow-primary-strong: 0 4px 22px rgba(91, 155, 255, 0.55);
+    --glow-success: 0 3px 16px rgba(62, 207, 142, 0.40);
+    --glow-danger: 0 3px 16px rgba(255, 111, 100, 0.40);
+    --glow-neutral: 0 1px 4px rgba(0, 0, 0, 0.40);
+    --glow-neutral-strong: 0 3px 12px rgba(0, 0, 0, 0.50);
+    --glow-card: 0 12px 32px rgba(91, 155, 255, 0.14), 0 4px 14px rgba(0, 0, 0, 0.45);
+    --overlay: rgba(4, 7, 13, 0.68);
+    --shadow-modal: 0 14px 40px rgba(0, 0, 0, 0.60);
+    --selected-bg: #24406e;
+    --on-danger: #26090b;
+    --home-chip-bg: #3d4a5f;
+    --home-chip-hover: #4d5d77;
+    --home-chip-text: #eef2f8;
+    --disabled-bg: #222a37;
+    --disabled-border: #303a49;
+    --disabled-text: #66738a;
+    --code-bg: #0d1118;
+    --code-text: #d7e0ef;
+  }
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* Screen router: exactly one section.screen carries .active */
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .hidden { display: none !important; }
+
+  /* Subtle theme-swap motion: only the five color/shadow properties,
+     160ms, no delay. Layout, visibility and transforms always apply
+     instantly. */
+  body, button, input, fieldset, .drop-zone, .docs-content, .docs-content code, .docs-content pre, .docs-content th, .docs-content td, .qa-pair, #flashcard-card, .tile, .tf-candidate, .review-item, .review-candidate, .review-choice, .modal-box, #board-complete, #quiz-count {
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, outline-color 160ms ease;
+  }
+  .subtitle, .drop-hint, .modal-hint, .review-number, .qa-a, .landing-error, .options-error, .not-answered-note {
+    transition: color 160ms ease;
+  }
+
+  .wrap { max-width: 780px; margin: 0 auto; padding: 72px 20px 110px; }
+  .screen-title { margin: 0 0 6px; font-size: 30px; }
+  .subtitle { color: var(--text-muted); margin: 0 0 22px; }
+
+  button {
+    font: inherit;
+    padding: 10px 20px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    box-shadow: var(--glow-neutral);
+  }
+  button:hover:enabled {
+    background: var(--surface-hover);
+    box-shadow: var(--glow-neutral-strong);
+  }
+  button:active:enabled {
+    transform: translateY(1px);
+    box-shadow: var(--glow-neutral);
+  }
+  button.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-text);
+    box-shadow: var(--glow-primary);
+  }
+  button.primary:hover:enabled {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+    box-shadow: var(--glow-primary-strong);
+  }
+  button.primary:active:enabled { box-shadow: var(--glow-primary); }
+  button:disabled,
+  button:disabled:hover {
+    background: var(--disabled-bg);
+    border-color: var(--disabled-border);
+    color: var(--disabled-text);
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  input { accent-color: var(--primary); }
+
+  /* Keyboard focus: a clear ring on every interactive control. */
+  button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, section.screen[tabindex="-1"]:focus, .qa-pair[tabindex="-1"]:focus { outline: none; }
