@@ -23,7 +23,12 @@ async function clickSpot(page, sel, x, y) {
     img.scrollIntoView({ block: 'nearest' });
     const r = img.getBoundingClientRect();
     const cx = r.left + r.width * p.x / 100, cy = r.top + r.height * p.y / 100;
-    const target = document.elementFromPoint(cx, cy) || img;
+    // What's at that point, as a real click would find it (fog over the
+    // picture is). If the point falls outside the question altogether,
+    // WebKit's zoomed coordinates have put it off the picture: use the picture.
+    const hit = document.elementFromPoint(cx, cy);
+    const box = img.closest('.q-box');
+    const target = hit && box && box.contains(hit) ? hit : img;
     for (const type of ['mousedown', 'mouseup', 'click']) {
       target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 }));
     }
