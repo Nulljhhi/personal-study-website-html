@@ -7,9 +7,16 @@ const fx = (n) => path.join(__dirname, 'fixtures', n);
 const page_url = require('url').pathToFileURL(path.join(__dirname, '..', 'src', 'index.html')).href;
 
 // Click a spot on the visible hotspot picture, in percent of its size.
+// Clicks x%, y% of the picture. Playwright measures and clicks the element
+// itself: under the page's CSS zoom, getBoundingClientRect is in zoomed
+// pixels in Chromium but unzoomed ones in WebKit, so it can't be used for
+// mouse coordinates in both.
 async function clickSpot(page, sel, x, y) {
-  const box = await page.$eval(sel + ' .hs-pad img', (img) => { const r = img.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height }; });
-  await page.mouse.click(box.l + box.w * x / 100, box.t + box.h * y / 100);
+  const img = await page.$(sel + ' .hs-pad img');
+  await img.scrollIntoViewIfNeeded();
+  const box = await img.boundingBox();
+  // force: some checks click on purpose while fog covers the picture.
+  await img.click({ position: { x: box.width * x / 100, y: box.height * y / 100 }, force: true });
 }
 
 (async () => {
@@ -82,7 +89,7 @@ async function clickSpot(page, sel, x, y) {
   check(/^hs:30/.test(await page.evaluate(() => StudyApp.state.quiz.answers[StudyApp.state.quiz.index])), 'with instant feedback the first click is final');
   await toQ(3);
   await clickSpot(page, '#quiz-figure', 10, 90);
-  check(/Not quite/.test(await page.textContent('#quiz-feedback')), 'a click elsewhere is wrong');
+  check(/Not quite/.test(await page.textContent('#quiz-feedback')), 'a click elsewhere is wrong: ' + await page.textContent('#quiz-feedback') + ' / ' + await page.evaluate(() => StudyApp.state.quiz.answers[StudyApp.state.quiz.index]));
   check(await page.isVisible('#quiz-figure .hs-marker.miss'), 'a missed pick shows in red');
   // Keyboard: arrows move a cursor on the picture, Enter picks.
   await page.evaluate(() => StudyApp.showScreen('home'));

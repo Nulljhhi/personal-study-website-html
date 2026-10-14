@@ -34,8 +34,14 @@ const check = (c, m) => { if (!c) { console.log('FAIL', m); process.exitCode = 1
   await page.check('#game-bots');
   await page.keyboard.press('Enter'); await page.clock.runFor(300);
   check(await page.isVisible('#screen-game') && await page.isVisible('#game-board'), 'Enter starts; live board shown');
-  const board = await page.$eval('#game-board', e => { const r = e.getBoundingClientRect(); return { bottom: Math.round(r.bottom), left: Math.round(r.left), pos: getComputedStyle(e).position, rows: e.querySelectorAll('.board-row').length }; });
-  check(board.pos === 'fixed' && board.left < 40 && board.bottom > 1000 && board.rows === 4, 'board glued bottom-left: ' + JSON.stringify(board));
+  // Measured against the viewport in the page's own units (under CSS zoom,
+  // WebKit reports positions unzoomed, Chromium zoomed; the ratio is the same).
+  const board = await page.$eval('#game-board', e => {
+    const r = e.getBoundingClientRect(), page = document.documentElement.getBoundingClientRect();
+    const cs = getComputedStyle(e);
+    return { gapBelow: Math.round(page.bottom - r.bottom), left: Math.round(r.left), pos: cs.position, bottomCss: cs.bottom, rows: e.querySelectorAll('.board-row').length, viewH: innerHeight };
+  });
+  check(board.pos === 'fixed' && board.left < 40 && parseFloat(board.bottomCss) < 40 && board.rows === 4, 'board glued bottom-left: ' + JSON.stringify(board));
   for (let i = 0; i < 8; i++) { await page.clock.runFor(2500); await ans(i !== 3); await page.clock.runFor(1500); }
   for (let i = 0; i < 10 && await page.isVisible('#screen-game'); i++) { await page.clock.runFor(1000); await ans(false); await page.clock.runFor(2500); }
   await page.clock.runFor(1000);
