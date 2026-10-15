@@ -1,0 +1,36 @@
+unit_title: Picture Test; Oct 2026
+
+question: What is the blue structure in this cell?
+answer: Nucleus
+medium_fake_answer_1: Ribosome
+medium_fake_answer_2: Vacuole
+medium_fake_answer_3: Cell wall
+hard_fake_answer_1: Nucleolus
+hard_fake_answer_2: Chloroplast
+hard_fake_answer_3: Lysosome
+
+question: Click the red dot on the map.
+hotspot: 30, 60
+answer: The red dot
+
+question: What is 2 + 2?
+answer: 4
+medium_fake_answer_1: 5
+medium_fake_answer_2: 3
+medium_fake_answer_3: 6
+hard_fake_answer_1: 22
+hard_fake_answer_2: 8
+hard_fake_answer_3: 0
+
+question: Click the yellow square.
+hotspot: 75, 25
+hotspot_radius: 5
+
+question: What color is the sky on a clear day?
+answer: Blue
+medium_fake_answer_1: Green
+medium_fake_answer_2: Red
+medium_fake_answer_3: Purple
+hard_fake_answer_1: Grey
+hard_fake_answer_2: White
+hard_fake_answer_3: Cyan

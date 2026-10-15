@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<!-- Built by tools/build.js from the files in app/. Edit those, then run: node tools/build.js -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study Website</title>
+<style>
+/* build:styles */
+</style>
+</head>
+<body>
+
+<!-- ======================== Landing ======================== -->
+<section class="screen active" id="screen-landing">
+  <div class="wrap">
+    <h1 class="app-title">Study Website</h1>
+    <p class="subtitle">Load a unit file to start studying. Your file stays on this device; nothing is sent anywhere.</p>
+    <div id="drop-zone" class="drop-zone">
+      <strong>Drag &amp; drop your unit file here</strong>
+      <span class="drop-hint">a plain-text question file, or a .zip with its images (see the Documentation)</span>
+    </div>
+    <div class="landing-actions">
+      <button id="select-file-btn" type="button" class="primary">Select file</button>
+      <button id="docs-link" type="button">Documentation</button>
+      <button type="button" class="resume-session-btn">Resume saved progress</button>
+      <button id="open-saved-bank-btn" type="button">Open saved bank</button>
+      <button id="quit-btn" type="button" class="back-btn hidden">Quit</button>
+    </div>
+    <p id="landing-folder-note" class="folder-note"></p>
+    <input type="file" id="file-input" class="hidden">
+    <p id="landing-error" class="landing-error" role="alert"></p>
+  </div>
+</section>
+
+<!-- ======================== Documentation ======================== -->
+<section class="screen" id="screen-docs">
+  <div class="wrap wrap-docs">
+    <nav class="docs-nav" aria-label="Documentation pages">
+      <button id="docs-prev-btn" type="button" aria-label="Previous documentation page">&#8592;</button>
+      <span id="docs-nav-label" class="docs-nav-label" aria-live="polite"></span>
+      <button id="docs-next-btn" type="button" aria-label="Next documentation page">&#8594;</button>
+    </nav>
+    <div id="docs-content" class="docs-content"></div>
+    <div class="docs-actions">
+      <button id="download-md-btn" type="button" class="primary">Download as Markdown</button>
+      <button id="docs-back-btn" type="button" class="back-btn">Back</button>
+    </div>
+  </div>
+</section>
+
+<!-- ======================== Home ======================== -->
+<section class="screen" id="screen-home">
+  <div class="wrap wrap-wide">
+    <div class="home-layout">
+      <div class="home-side">
+        <div class="home-top"><button id="back-to-landing-btn" type="button" class="back-btn">&#8592; Change unit</button></div>
+        <h1 id="unit-title" class="unit-title"></h1>
+        <div class="mode-buttons">
+          <button id="mode-flashcard-btn" type="button" class="primary">Flashcard</button>
+          <button id="mode-quiz-btn" type="button" class="primary">Quiz</button>
+          <button id="mode-match-btn" type="button" class="primary">Matching Tiles</button>
+          <button id="mode-exam-btn" type="button" class="primary">Exam</button>
+          <button id="mode-games-btn" type="button" class="primary games-btn">Games</button>
+          <button id="mode-sessions-btn" type="button" class="primary">Study Sessions <span id="garden-due-badge" class="garden-badge hidden"></span></button>
+          <p class="keys-hint" style="grid-column: 1 / -1">Keys: F Flashcards · Q Quiz · M Matching · E Exam · G Games · S Study Sessions</p>
+        </div>
+        <div class="resume-actions">
+          <button type="button" class="resume-session-btn">Resume saved progress</button>
+          <button id="save-bank-btn" type="button">Save to folder</button>
+          <button id="reset-completed-btn" type="button">Reset completed</button>
+        </div>
+        <div class="stat-box" id="completed-box">
+          <span id="completed-summary"></span>
+          <div class="stat-track"><div id="completed-bar" class="stat-bar"></div></div>
+        </div>
+        <div class="stat-box hidden" id="bank-path-box">
+          <span class="stat-label">Saved to</span>
+          <span id="bank-path-text"></span>
+          <div class="stat-bar"></div>
+        </div>
+      </div>
+      <div class="home-main">
+        <h2 class="qa-heading">All questions</h2>
+        <div id="qa-list" class="qa-list"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================== Flashcard ======================== -->
+<section class="screen" id="screen-flashcard-options">
+  <div class="wrap">
+    <h1 class="screen-title">Flashcards</h1>
+    <fieldset>
+      <legend>Order</legend>
+      <label class="option"><input type="radio" name="fc-order" value="seeded" checked> Shuffled <span class="skip-hint-inline">— a new seeded order each time (the seed is shown, so an order can be repeated)</span></label>
+      <label class="option"><input type="radio" name="fc-order" value="bank"> Question bank order <span class="skip-hint-inline">— the order the questions appear in the bank</span></label>
+    </fieldset>
+    <fieldset>
+      <legend>Completed questions</legend>
+      <label class="option"><input type="checkbox" id="fc-skip-completed"> Skip completed questions</label>
+      <p id="fc-skip-hint" class="skip-hint"></p>
+    </fieldset>
+    <p class="skip-hint">Keys: A or ← back · D or → forward · Space or Enter flips · Backspace or Esc returns home.</p>
+    <div class="options-actions">
+      <button id="fc-start-btn" type="button" class="primary">Start Flashcards</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+<section class="screen" id="screen-flashcard">
+  <div class="wrap wrap-study">
+    <div class="session-toolbar">
+      <label><input id="fc-show-progress" type="checkbox" checked aria-controls="fc-progress"> Show progress</label>
+      <label><input id="fc-show-seed" type="checkbox" checked aria-controls="fc-meta"> Show seed</label>
+    </div>
+    <p id="fc-meta" class="session-meta"></p>
+    <div id="fc-progress" class="quiz-progress">
+      <p id="fc-progress-text" aria-live="polite"></p>
+      <progress id="fc-progress-bar" value="0" max="1" aria-labelledby="fc-progress-text"></progress>
+    </div>
+    <div id="flashcard-card" class="flashcard-card">
+      <div id="card-question" class="card-face"></div>
+      <div id="card-answer" class="card-face hidden"></div>
+      <div id="card-figure" class="card-figure hidden"></div>
+    </div>
+    <div class="flashcard-controls">
+      <button id="prev-card-btn" type="button" aria-label="Previous card">&#8592;</button>
+      <button id="flip-btn" type="button" class="primary">Flip</button>
+      <button id="next-card-btn" type="button" aria-label="Next card">&#8594;</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Match Size ======================== -->
+<section class="screen" id="screen-match-size">
+  <div class="wrap">
+    <h1 class="screen-title">Matching Tiles</h1>
+    <p class="subtitle">Choose a board size.</p>
+    <fieldset class="match-options">
+      <legend>Completed questions</legend>
+      <label class="option"><input type="checkbox" id="match-skip-completed"> Skip completed questions</label>
+      <p id="match-skip-hint" class="skip-hint"></p>
+    </fieldset>
+    <div class="match-size-buttons">
+      <button class="match-size-btn" data-size="4" type="button">4&#215;4</button>
+      <button class="match-size-btn" data-size="6" type="button">6&#215;6</button>
+      <button class="match-size-btn" data-size="8" type="button">8&#215;8</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Match Board ======================== -->
+<section class="screen" id="screen-match-board">
+  <div class="wrap">
+    <div class="match-head">
+      <h1 id="match-size-label" class="screen-title"></h1>
+      <label class="match-seed-toggle"><input id="match-show-seed" type="checkbox"> Show seed</label>
+      <span id="match-meta" class="session-meta hidden"></span>
+    </div>
+    <div class="match-grid-scroll" tabindex="0" role="region" aria-label="Matching board; scroll horizontally on smaller screens">
+      <div id="match-grid" class="match-grid"></div>
+    </div>
+    <p id="board-complete" class="board-complete hidden">Board complete!</p>
+    <div class="board-actions">
+      <button id="shuffle-btn" type="button" class="primary">Shuffle</button>
+    </div>
+    <p class="skip-hint match-keys">Keys: Space or Enter shuffles · Backspace or Esc returns home.</p>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Quiz Options ======================== -->
+<section class="screen" id="screen-quiz-options">
+  <div class="wrap">
+    <h1 class="screen-title">Quiz Options</h1>
+    <fieldset>
+      <legend>Completed questions</legend>
+      <label class="option"><input type="checkbox" id="skip-completed"> Skip completed questions</label>
+      <p id="skip-completed-hint" class="skip-hint"></p>
+    </fieldset>
+    <div class="option-row">
+      <label for="quiz-count">Number of questions</label>
+      <input type="number" id="quiz-count" min="1" max="1" value="1">
+    </div>
+    <fieldset>
+      <legend>Difficulty</legend>
+      <label class="option"><input type="radio" name="quiz-difficulty" value="easy" checked> Easy</label>
+      <label class="option"><input type="radio" name="quiz-difficulty" value="medium"> Medium</label>
+      <label class="option"><input type="radio" name="quiz-difficulty" value="hard"> Hard</label>
+    </fieldset>
+    <fieldset>
+      <legend>Question types</legend>
+      <label class="option"><input type="checkbox" id="type-mc" checked> Multiple Choice</label>
+      <label class="option"><input type="checkbox" id="type-tf" checked> True/False</label>
+    </fieldset>
+    <fieldset>
+      <legend>Feedback</legend>
+      <label class="option"><input type="checkbox" id="instant-feedback"> Instant feedback</label>
+      <p class="skip-hint">See whether each answer is right as soon as you pick it. Your first pick is final.</p>
+    </fieldset>
+    <p id="quiz-options-error" class="options-error" role="alert"></p>
+    <div class="options-actions">
+      <button id="quiz-start-btn" type="button" class="primary">Start Quiz</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Quiz (shared with Exam) ======================== -->
+<section class="screen" id="screen-quiz">
+  <div class="wrap wrap-study">
+    <div class="session-disclosure">
+      <button id="session-toggle-btn" type="button" aria-expanded="true" aria-controls="session-panel" aria-label="Hide study controls" title="Hide study controls">&#8743;</button>
+    </div>
+    <div id="session-panel">
+    <div class="session-toolbar">
+      <label><input id="show-progress" type="checkbox" checked aria-controls="quiz-progress"> Show progress</label>
+      <label><input id="show-seed" type="checkbox" checked aria-controls="session-meta"> Show seed</label>
+      <button id="save-progress-btn" type="button">Save progress</button>
+    </div>
+    <p id="session-meta" class="session-meta"></p>
+    <div id="quiz-progress" class="quiz-progress">
+      <p id="quiz-progress-text" aria-live="polite"></p>
+      <progress id="quiz-progress-bar" value="0" max="1" aria-labelledby="quiz-progress-text"></progress>
+    </div>
+    <p id="save-progress-status" class="session-status" role="status"></p>
+    </div>
+    <div id="quiz-qbox" class="q-box">
+      <div id="quiz-figure" class="q-figure hidden"></div>
+      <div class="q-text">
+        <h2 id="quiz-question-text" class="quiz-question"></h2>
+        <p id="tf-candidate" class="tf-candidate hidden"></p>
+      </div>
+    </div>
+    <div id="quiz-choices" class="quiz-choices"></div>
+    <p id="quiz-feedback" class="quiz-feedback" role="status" aria-live="polite"></p>
+    <p class="skip-hint quiz-keys">Keys: 1–4 pick an answer · T / F for True/False · A or ← back · D or → forward · Enter submits · Backspace or Esc returns home.</p>
+    <div class="quiz-controls">
+      <button id="quiz-prev-btn" type="button" aria-label="Previous question">&#8592;</button>
+      <button id="submit-quiz-btn" type="button">Submit</button>
+      <button id="quiz-next-btn" type="button" aria-label="Next question">&#8594;</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Quiz Review (shared with Exam) ======================== -->
+<section class="screen" id="screen-quiz-review">
+  <div class="wrap wrap-study">
+    <h1 class="screen-title">Review</h1>
+    <p id="review-completed-note" class="review-completed-note" role="status"></p>
+    <div id="review-list" class="review-list"></div>
+    <div class="review-controls">
+      <button id="review-prev-btn" type="button" aria-label="Previous question">&#8592;</button>
+      <button id="review-next-btn" type="button" aria-label="Next question">&#8594;</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Exam Options ======================== -->
+<!-- ======================== Question banks ======================== -->
+<section class="screen" id="screen-banks">
+  <div class="wrap wrap-wide">
+    <div class="checkpoints-header">
+      <h1 class="screen-title">Question banks</h1>
+    </div>
+    <p class="subtitle">Pick a saved bank to study. Use Rename or Delete to manage them.</p>
+    <p id="banks-error" class="landing-error" role="alert"></p>
+    <div class="bank-tools hidden" id="bank-tools">
+      <input id="bank-filter" class="text-input" type="search" autocomplete="off" spellcheck="false" placeholder="Filter by title" aria-label="Filter banks by title">
+      <span id="bank-count" class="bank-count"></span>
+    </div>
+    <p id="banks-status" class="checkpoints-empty hidden" aria-live="polite"></p>
+    <div id="bank-grid" class="checkpoint-grid"></div>
+    <button id="banks-back-btn" type="button" class="back-btn">Back</button>
+  </div>
+</section>
+
+<!-- ======================== Checkpoints ======================== -->
+<section class="screen" id="screen-checkpoints">
+  <div class="wrap wrap-wide">
+    <div class="checkpoints-header">
+      <h1 class="screen-title">Saved checkpoints</h1>
+      <button id="checkpoint-import-btn" type="button">Import from file</button>
+    </div>
+    <p class="subtitle">Pick a checkpoint to continue where you left off.</p>
+    <p id="checkpoints-error" class="landing-error" role="alert"></p>
+    <div id="checkpoint-grid" class="checkpoint-grid"></div>
+    <button id="checkpoints-back-btn" type="button" class="back-btn">Back</button>
+  </div>
+</section>
+
+<!-- ======================== Games ======================== -->
+<section class="screen" id="screen-sessions">
+  <div class="wrap wrap-wide">
+    <h1 class="screen-title">Study Sessions</h1>
+    <p class="subtitle">Calmer ways to study, built around reviewing at the right time.</p>
+    <div class="checkpoint-grid games-grid">
+      <div id="mode-garden-btn" class="checkpoint-tile session-tile" tabindex="0" role="button" aria-label="Open Study Garden">
+        <div class="tile-body">
+          <p class="checkpoint-unit">Study Garden</p>
+          <p class="game-tile-desc">Every question is a seed. Water plants on a 1, 3, 7, 14 and 30-day schedule; a plant in full bloom marks its question completed.</p>
+          <p class="game-tile-best" id="sessions-garden-line"></p>
+        </div>
+      </div>
+    </div>
+    <div class="options-actions">
+      <button id="sessions-back-btn" type="button" class="back-btn">Back</button>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="screen-garden">
+  <div class="wrap wrap-wide">
+    <div class="garden-head">
+      <h1 class="screen-title">Study Garden</h1>
+      <span id="garden-season" class="garden-season"></span>
+    </div>
+    <p id="garden-summary" class="subtitle"></p>
+    <div id="garden-scene" class="garden-scene-wrap"></div>
+    <div class="options-actions garden-actions">
+      <button id="garden-water-btn" type="button" class="primary">Water today's plants</button>
+      <button id="garden-seed-btn" type="button">Plant new seeds</button>
+      <select id="garden-seed-size" class="text-input game-select" aria-label="Seeds per session">
+        <option value="5">5 seeds at a time</option>
+        <option value="10">10 seeds at a time</option>
+        <option value="20">20 seeds at a time</option>
+      </select>
+      <button id="garden-shop-btn" type="button">Decorate</button>
+      <select id="garden-reading-speed" class="text-input game-select reading-speed-select" aria-label="Reading speed">
+            <option value="relaxed">Reading: Relaxed (120 words/min)</option>
+            <option value="normal">Reading: Normal (150 words/min)</option>
+            <option value="quick">Reading: Quick (200 words/min)</option>
+      </select>
+      <button id="garden-back-btn" type="button" class="back-btn">Back</button>
+    </div>
+    <div class="garden-visitors-row"><span class="arena-caption">Visitors</span><div id="garden-visitors" class="garden-visitors"></div></div>
+    <div id="garden-plots" class="garden-plots"></div>
+  </div>
+</section>
+
+<section class="screen" id="screen-games">
+  <div class="wrap wrap-wide">
+    <h1 class="screen-title">Games</h1>
+    <p class="subtitle">Answer questions against the clock. Correct answers count toward your completed questions.</p>
+    <div id="games-grid" class="checkpoint-grid games-grid"></div>
+    <div class="options-actions">
+      <button id="games-back-btn" type="button" class="back-btn">Back</button>
+      <button id="games-ach-btn" type="button">Achievements</button>
+    </div>
+    <p class="keys-hint">Keys: 1-9 open a game · A Achievements · Esc back</p>
+  </div>
+</section>
+
+<section class="screen" id="screen-achievements">
+  <div class="wrap wrap-wide">
+    <h1 class="screen-title">Achievements</h1>
+    <p id="achievements-summary" class="subtitle"></p>
+    <div id="achievements-list"></div>
+    <button id="achievements-back-btn" type="button" class="back-btn">Back</button>
+  </div>
+</section>
+
+<section class="screen" id="screen-game-setup">
+  <div class="wrap">
+    <h1 id="game-setup-title" class="screen-title"></h1>
+    <p id="game-setup-rules" class="subtitle"></p>
+    <div class="setup-grid">
+    <fieldset>
+      <legend>Difficulty</legend>
+      <label class="option"><input type="radio" name="game-diff-mode" value="rising" checked> Rising <span class="skip-hint-inline">— starts easy, then medium, then hard</span></label>
+      <label class="option"><input type="radio" name="game-diff-mode" value="single"> Single difficulty for the whole game</label>
+      <div id="game-single-levels" class="game-levels">
+        <label class="option"><input type="radio" name="game-level" value="easy" checked> Easy</label>
+        <label class="option"><input type="radio" name="game-level" value="medium"> Medium</label>
+        <label class="option"><input type="radio" name="game-level" value="hard"> Hard</label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Question types</legend>
+      <label class="option"><input type="checkbox" id="game-type-mc" checked> Multiple Choice</label>
+      <label class="option"><input type="checkbox" id="game-type-tf" checked> True/False</label>
+      <label class="option-row-inline reading-speed-inline">Reading speed
+        <select id="reading-speed" class="text-input game-select reading-speed-select" title="Timers give you this much time to read the question and its answers. It applies to every game.">
+            <option value="relaxed">Relaxed (120 words/min)</option>
+            <option value="normal">Normal (150 words/min)</option>
+            <option value="quick">Quick (200 words/min)</option>
+        </select>
+      </label>
+    </fieldset>
+    <fieldset id="game-fishing-options" class="hidden">
+      <legend>Session length</legend>
+      <label class="option-row-inline">Fish for
+        <input id="game-minutes" class="text-input game-minutes" type="number" min="1" max="120" step="1" inputmode="numeric" value="10" aria-describedby="game-minutes-hint">
+        minutes
+      </label>
+      <p id="game-minutes-hint" class="skip-hint">Any whole number from 1 to 120.</p>
+    </fieldset>
+    <fieldset id="game-survival-options" class="hidden">
+      <legend>Perks</legend>
+      <div id="survival-perks" class="sv-perks"></div>
+      <p id="survival-info" class="skip-hint"></p>
+    </fieldset>
+    <fieldset id="game-blitz-options" class="hidden">
+      <legend>Round</legend>
+      <label class="option-row-inline">Mode
+        <select id="blitz-mode" class="text-input game-select td-select"></select>
+      </label>
+      <label class="option-row-inline">Clock theme
+        <select id="blitz-theme" class="text-input game-select td-select"></select>
+      </label>
+      <p id="blitz-info" class="skip-hint"></p>
+    </fieldset>
+    <fieldset id="game-delve-options" class="hidden">
+      <legend>Run</legend>
+      <label class="option-row-inline">Start
+        <select id="delve-start" class="text-input game-select td-select"></select>
+      </label>
+      <label class="option-row-inline" id="delve-class-row">Class
+        <select id="delve-class" class="text-input game-select td-select"></select>
+      </label>
+      <p id="delve-info" class="skip-hint"></p>
+    </fieldset>
+    <fieldset id="game-boss-options" class="hidden">
+      <legend>Mode</legend>
+      <label class="option-row-inline">Fight
+        <select id="boss-mode" class="text-input game-select td-select"></select>
+      </label>
+      <p id="boss-info" class="skip-hint"></p>
+    </fieldset>
+    <fieldset id="game-td-options" class="hidden">
+      <legend>Map</legend>
+      <label class="option-row-inline">Map
+        <select id="td-map" class="text-input game-select td-select"></select>
+      </label>
+      <label class="option-row-inline" id="td-tier-row">Difficulty
+        <select id="td-tier" class="text-input game-select td-select">
+          <option value="normal">Normal</option>
+          <option value="hard">Hard</option>
+          <option value="nightmare">Nightmare</option>
+        </select>
+      </label>
+      <p id="td-map-info" class="skip-hint"></p>
+    </fieldset>
+    <fieldset id="game-rally-options" class="hidden">
+      <legend>Race</legend>
+      <label class="option-row-inline">Event
+        <select id="rally-mode" class="text-input game-select td-select"></select>
+      </label>
+      <label class="option-row-inline" id="rally-track-row">Track
+        <select id="rally-track" class="text-input game-select td-select"></select>
+      </label>
+      <p id="rally-info" class="skip-hint"></p>
+    </fieldset>
+    <fieldset>
+      <legend>Extras</legend>
+      <label class="option"><input type="checkbox" id="game-skip-completed"> Skip completed questions <span class="skip-hint-inline" id="game-skip-hint"></span></label>
+      <label class="option" id="game-bots-row"><input type="checkbox" id="game-bots"> Play against bots <span class="skip-hint-inline">— three rivals that adapt to your skill</span></label>
+      <div id="game-progress-options" class="hidden">
+        <label class="option"><input type="checkbox" id="game-clean"> Clean run <span class="skip-hint-inline">— start fresh and save nothing</span></label>
+      </div>
+    </fieldset>
+    </div>
+    <div id="game-modifier-row" class="game-modifier hidden">
+      <label class="option"><input type="checkbox" id="game-modifier" checked> Use today's modifier: <strong id="game-modifier-text"></strong></label>
+    </div>
+    <div id="game-progress-panel" class="game-progress-panel"></div>
+    <p id="game-setup-best" class="skip-hint"></p>
+    <div class="options-actions">
+      <button id="game-start-btn" type="button" class="primary">Start</button>
+      <button id="game-setup-shop-btn" type="button" class="hidden">Shop &amp; collection</button>
+      <button id="game-setup-back-btn" type="button" class="back-btn">Back</button>
+      <button id="game-reset-btn" type="button" class="reset-progress-btn">Reset progress</button>
+    </div>
+    <p class="keys-hint">Keys: Enter start · S shop · Esc back</p>
+  </div>
+</section>
+
+<section class="screen" id="screen-game">
+  <div class="wrap wrap-wide game-wrap">
+    <div class="game-hud">
+      <div id="game-hearts" class="game-hearts" aria-label="Hearts"></div>
+      <div id="game-stats" class="game-stats"></div>
+      <div id="game-powerups" class="game-powerups"></div>
+      <button id="game-shop-btn" type="button" class="hidden">Shop</button>
+      <button id="game-pause-btn" type="button">Pause</button>
+    </div>
+    <div class="game-timer-track"><div id="game-timer-bar" class="game-timer-bar"></div><div id="game-timer-mark" class="game-timer-mark hidden" title="Reading time ends here"></div></div>
+    <div class="game-layout">
+      <div class="game-side">
+        <div id="game-arena" class="game-arena"></div>
+        <div id="game-board" class="game-board hidden" aria-live="off"></div>
+      </div>
+      <div class="game-main">
+        <div id="game-question-pane">
+          <div id="game-qbox" class="q-box">
+            <div id="game-figure" class="q-figure hidden"></div>
+            <div class="q-text">
+              <h2 id="game-question" class="quiz-question"></h2>
+              <p id="game-tf-candidate" class="tf-candidate hidden"></p>
+            </div>
+          </div>
+          <div id="game-choices" class="quiz-choices game-choices"></div>
+          <p id="game-feedback" class="quiz-feedback" role="status" aria-live="polite"></p>
+        </div>
+        <div id="game-idle-pane" class="game-idle hidden">
+          <h2 id="game-idle-title" class="quiz-question"></h2>
+          <p id="game-idle-text" class="subtitle"></p>
+          <div id="game-idle-actions" class="game-idle-actions"></div>
+          <button id="game-cast-btn" type="button" class="primary cast-btn">Cast</button>
+        </div>
+        <p class="game-keys" id="game-keys"></p>
+      </div>
+    </div>
+  </div>
+  <div id="game-flash" class="game-flash"></div>
+  <button id="game-exit-btn" class="game-exit" type="button">Return Home</button>
+</section>
+
+<section class="screen" id="screen-tycoon-day">
+  <div class="wrap wrap-wide">
+    <h1 id="ty-day-title" class="screen-title"></h1>
+    <div class="ty-day-layout">
+      <div class="ty-day-side">
+        <div id="ty-day-stats" class="game-results-stats ty-day-stats"></div>
+        <div class="options-actions game-results-actions">
+          <button id="ty-next-btn" type="button" class="primary">Start next day</button>
+          <button id="ty-close-btn" type="button" class="back-btn">Close for now</button>
+        </div>
+        <div id="ty-day-board" class="game-board results-board hidden"></div>
+      </div>
+      <div>
+        <div id="ty-shop" class="shop-grid"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="screen-game-results">
+  <div class="wrap">
+    <h1 id="game-results-title" class="screen-title"></h1>
+    <p id="game-results-best" class="game-new-best hidden">New best score!</p>
+    <p id="game-results-place" class="game-place hidden"></p>
+    <p id="game-results-xp" class="game-xp hidden"></p>
+    <div id="game-results-stats" class="game-results-stats"></div>
+    <p id="game-results-catch" class="game-catch hidden"></p>
+    <div id="game-results-board" class="game-board results-board hidden"></div>
+    <h2 class="qa-heading" id="game-missed-heading">Questions to review</h2>
+    <div id="game-missed" class="qa-list"></div>
+    <div class="options-actions game-results-actions">
+      <button id="game-again-btn" type="button" class="primary">Play again</button>
+      <button id="game-results-games-btn" type="button">Games</button>
+      <button id="game-results-home-btn" type="button" class="back-btn">Home</button>
+    </div>
+    <p class="keys-hint">Keys: Enter or R play again · G Games · Esc or H Home</p>
+  </div>
+</section>
+
+<section class="screen" id="screen-exam-options">
+  <div class="wrap">
+    <h1 class="screen-title">Exam Options</h1>
+    <p class="subtitle">An exam always uses every question in the unit.</p>
+    <fieldset>
+      <legend>Difficulty</legend>
+      <label class="option"><input type="radio" name="exam-difficulty" value="easy" checked> Easy</label>
+      <label class="option"><input type="radio" name="exam-difficulty" value="medium"> Medium</label>
+      <label class="option"><input type="radio" name="exam-difficulty" value="hard"> Hard</label>
+    </fieldset>
+    <fieldset>
+      <legend>Question types</legend>
+      <label class="option"><input type="checkbox" id="exam-type-mc" checked> Multiple Choice</label>
+      <label class="option"><input type="checkbox" id="exam-type-tf" checked> True/False</label>
+    </fieldset>
+    <p id="exam-options-error" class="options-error" role="alert"></p>
+    <div class="options-actions">
+      <button id="exam-start-btn" type="button" class="primary">Start Exam</button>
+    </div>
+  </div>
+  <button class="return-home" type="button">Return Home</button>
+</section>
+
+<!-- ======================== Submit modal overlay ======================== -->
+<div id="submit-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Are you sure you want to submit?</p>
+    <p class="modal-hint">Some questions are still unanswered.</p>
+    <div class="modal-actions">
+      <button id="submit-back-btn" type="button">Go back</button>
+      <button id="submit-continue-btn" type="button" class="primary">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== Reset completed modal ======================== -->
+<div id="reset-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Reset completed questions?</p>
+    <p class="modal-hint">Every question in this unit will be marked as not completed.</p>
+    <div class="modal-actions">
+      <button id="reset-cancel-btn" type="button">Cancel</button>
+      <button id="reset-confirm-btn" type="button" class="primary">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== Checkpoint modals ======================== -->
+<div id="checkpoint-delete-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Delete this checkpoint?</p>
+    <p id="checkpoint-delete-hint" class="modal-hint"></p>
+    <div class="modal-actions">
+      <button id="checkpoint-delete-cancel-btn" type="button">Cancel</button>
+      <button id="checkpoint-delete-confirm-btn" type="button" class="primary">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="checkpoint-done-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Delete the checkpoint for this attempt?</p>
+    <p class="modal-hint">You've submitted it, so you probably won't need to resume it again.</p>
+    <div class="modal-actions">
+      <button id="checkpoint-done-keep-btn" type="button">Keep</button>
+      <button id="checkpoint-done-delete-btn" type="button" class="primary">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== Game modals ======================== -->
+<div id="game-reset-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p id="game-reset-title" class="modal-text">Reset progress?</p>
+    <p id="game-reset-hint" class="modal-hint"></p>
+    <div class="modal-actions">
+      <button id="game-reset-cancel-btn" type="button">Cancel</button>
+      <button id="game-reset-confirm-btn" type="button" class="primary">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div id="game-pause-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p id="game-pause-title" class="modal-text">Paused</p>
+    <p id="game-pause-hint" class="modal-hint">The timer is stopped.</p>
+    <div class="modal-actions">
+      <button id="game-quit-btn" type="button">Quit game</button>
+      <button id="game-resume-btn" type="button" class="primary">Resume</button>
+    </div>
+  </div>
+</div>
+
+<div id="fish-shop-modal" class="modal-overlay hidden">
+  <div class="modal-box shop-box" role="dialog" aria-modal="true" aria-labelledby="fish-shop-title">
+    <div class="shop-head">
+      <p id="fish-shop-title" class="modal-text">Tackle shop</p>
+      <span id="fish-shop-coins" class="shop-coins"></span>
+    </div>
+    <div id="fish-shop-tabs" class="shop-tabs" role="tablist">
+      <button type="button" data-tab="rods" role="tab">Rods</button>
+      <button type="button" data-tab="stats" role="tab">Upgrades</button>
+      <button type="button" data-tab="locations" role="tab">Locations</button>
+      <button type="button" data-tab="log" role="tab">Collection</button>
+      <button type="button" data-tab="bounty" role="tab">Bounties</button>
+      <button type="button" data-tab="aquarium" role="tab">Aquarium</button>
+    </div>
+    <div id="fish-shop-list" class="shop-grid"></div>
+    <div class="modal-actions">
+      <button id="fish-shop-close-btn" type="button" class="primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="camp-modal" class="modal-overlay hidden">
+  <div class="modal-box shop-box" role="dialog" aria-modal="true" aria-labelledby="camp-title">
+    <div class="shop-head">
+      <p id="camp-title" class="modal-text">Camp</p>
+      <span id="camp-lanterns" class="shop-coins"></span>
+    </div>
+    <div id="camp-tabs" class="shop-tabs" role="tablist">
+      <button type="button" data-tab="upgrades" role="tab">Upgrades</button>
+      <button type="button" data-tab="outfitter" role="tab">Outfitter</button>
+      <button type="button" data-tab="relics" role="tab">Relic codex</button>
+      <button type="button" data-tab="codex" role="tab">Bestiary</button>
+    </div>
+    <div id="camp-list" class="shop-grid"></div>
+    <div class="modal-actions">
+      <button id="camp-close-btn" type="button" class="primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="armory-modal" class="modal-overlay hidden">
+  <div class="modal-box shop-box" role="dialog" aria-modal="true" aria-labelledby="armory-title">
+    <div class="shop-head">
+      <p id="armory-title" class="modal-text">Armory</p>
+      <span id="armory-stars" class="shop-coins"></span>
+    </div>
+    <p class="modal-hint">Campaign bosses drop gear the first time you beat them. Wear one weapon, one armor and one charm. Gear works in the campaign and the Gauntlet.</p>
+    <div id="armory-list" class="shop-grid"></div>
+    <div class="modal-actions">
+      <button id="armory-close-btn" type="button" class="primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="garden-shop-modal" class="modal-overlay hidden">
+  <div class="modal-box shop-box" role="dialog" aria-modal="true" aria-labelledby="garden-shop-title">
+    <div class="shop-head">
+      <p id="garden-shop-title" class="modal-text">Decorate your garden</p>
+      <span id="garden-shop-coins" class="shop-coins"></span>
+    </div>
+    <div id="garden-shop-list" class="shop-grid"></div>
+    <div class="modal-actions">
+      <button id="garden-shop-close-btn" type="button" class="primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="garage-modal" class="modal-overlay hidden">
+  <div class="modal-box shop-box" role="dialog" aria-modal="true" aria-labelledby="garage-title">
+    <div class="shop-head">
+      <p id="garage-title" class="modal-text">Garage</p>
+      <span id="garage-credits" class="shop-coins"></span>
+    </div>
+    <div id="garage-tabs" class="shop-tabs" role="tablist">
+      <button type="button" data-tab="cars" role="tab">Cars</button>
+      <button type="button" data-tab="tuning" role="tab">Tuning</button>
+      <button type="button" data-tab="trophies" role="tab">Trophies</button>
+    </div>
+    <div id="garage-list" class="shop-grid"></div>
+    <div class="modal-actions">
+      <button id="garage-close-btn" type="button" class="primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== Bank modals ======================== -->
+<div id="bank-rename-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="bank-rename-title">
+    <p id="bank-rename-title" class="modal-text">Rename question bank</p>
+    <p class="modal-hint">Tip: name it "topic; date", for example <em>Cell Biology; Sep 2026</em>.</p>
+    <input id="bank-rename-input" class="text-input" type="text" autocomplete="off" spellcheck="false" aria-label="New name">
+    <p id="bank-rename-error" class="options-error" role="alert"></p>
+    <div class="modal-actions">
+      <button id="bank-rename-cancel-btn" type="button">Cancel</button>
+      <button id="bank-rename-save-btn" type="button" class="primary">Rename</button>
+    </div>
+  </div>
+</div>
+
+<div id="bank-delete-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Delete this question bank?</p>
+    <p id="bank-delete-hint" class="modal-hint"></p>
+    <div class="modal-actions">
+      <button id="bank-delete-cancel-btn" type="button">Cancel</button>
+      <button id="bank-delete-confirm-btn" type="button" class="primary">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="quit-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <p class="modal-text">Some changes aren't saved yet</p>
+    <p id="quit-hint" class="modal-hint"></p>
+    <div class="modal-actions">
+      <button id="quit-cancel-btn" type="button">Stay</button>
+      <button id="quit-retry-btn" type="button">Try again</button>
+      <button id="quit-anyway-btn" type="button" class="primary">Quit anyway</button>
+    </div>
+  </div>
+</div>
+
+<div id="instance-modal" class="modal-overlay hidden">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="instance-title">
+    <p id="instance-title" class="modal-text">Study Website is already open</p>
+    <p class="modal-hint">You started it again, so the new copy was closed. Only one copy runs at a time, so two windows can't save over each other's progress. Keep studying here.</p>
+    <div class="modal-actions">
+      <button id="instance-ok-btn" type="button" class="primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="save-status" class="save-status hidden" role="status" aria-live="polite"></div>
+
+<div id="toast-stack" aria-live="polite"></div>
+
+<!-- ======================== Global theme toggle ======================== -->
+<input type="file" id="resume-file-input" class="hidden" accept=".json,application/json">
+<p id="resume-error" class="wrap hidden" style="padding-top: 16px; padding-bottom: 16px;" role="alert"></p>
+<button id="theme-toggle-btn" type="button" aria-label="Switch to dark mode">&#9790; Dark mode</button>
+
+<script>
+(function () {
+  "use strict";
+/* build:scripts */
+})();
+</script>
+</body>
+</html>

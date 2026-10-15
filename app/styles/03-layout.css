@@ -1,0 +1,99 @@
+  /* =====================================================================
+     SIZE AND LAYOUT (desktop, designed for 1920x1080)
+     Everything is scaled up 25% with zoom, so a 16px size in the rules
+     above renders at 20px. Widths below are in those zoomed units:
+     a maximized 1920px window is about 1536 units wide.
+     ===================================================================== */
+  html { zoom: 1.25; }
+  /* Other window sizes: the page scales so the same ~1536 x 864 layout
+     fits (fitLayoutZoom). Below about 1100px wide it switches to the
+     stacked "narrow" layout at normal size instead of shrinking further. */
+  body.narrow .home-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  body.narrow .home-side { position: static; }
+  body.narrow .game-layout, body.narrow #screen-game.wide-arena .game-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  body.narrow .game-arena { max-width: 640px; width: 100%; margin: 0 auto; }
+  /* Narrow windows: Return Home moves to the top-left corner and scrolls
+     with the page, so it never sits on top of answers or map nodes. */
+  body.narrow button.return-home, body.narrow button.game-exit { position: absolute; top: 16px; left: 16px; right: auto; bottom: auto; }
+  body.narrow .wrap, body.narrow .game-wrap { padding-top: 76px; }
+  body.narrow .setup-grid { grid-template-columns: minmax(0, 1fr); }
+  body.narrow .game-stats { flex-wrap: wrap; gap: 12px 20px; }
+  body.narrow .game-hud { row-gap: 10px; }
+  body.narrow .games-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.narrow .game-results-stats { grid-template-columns: repeat(2, 1fr); }
+  body.narrow .game-hud, body.narrow .game-results-actions, body.narrow .modal-actions,
+  body.narrow .flashcard-controls, body.narrow .quiz-controls, body.narrow .review-controls,
+  body.narrow .option-row-inline, body.narrow .game-levels { flex-wrap: wrap; }
+  body.narrow .wrap { padding-left: 16px; padding-right: 16px; }
+  body.narrow #flashcard-card { min-height: 300px; font-size: 26px; padding: 28px; }
+  body.narrow .quiz-question { font-size: 24px; }
+  @media (max-width: 700px) {
+    body.narrow .games-grid, body.narrow .home-side .mode-buttons { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .wrap { padding-top: 56px; }
+  .wrap-docs { max-width: 1100px; }
+  .wrap-wide { max-width: 1440px; }
+  .wrap-study { max-width: 1240px; }
+  #screen-match-board[data-size="8"] .wrap { max-width: none; }
+
+  /* Grey back buttons, matching Return Home */
+  button.back-btn {
+    background: var(--home-chip-bg);
+    border-color: var(--home-chip-bg);
+    color: var(--home-chip-text);
+    box-shadow: var(--glow-neutral-strong);
+  }
+  button.back-btn:hover:enabled {
+    background: var(--home-chip-hover);
+    border-color: var(--home-chip-hover);
+  }
+
+  /* Home: controls on the left (they stay in view), questions on the right */
+  .home-layout { display: grid; grid-template-columns: 470px minmax(0, 1fr); gap: 44px; align-items: start; }
+  .home-side { position: sticky; top: 56px; }
+  .home-side .unit-title { font-size: 28px; line-height: 1.25; overflow-wrap: anywhere; margin-bottom: 22px; }
+  .home-side .mode-buttons { grid-template-columns: repeat(2, 1fr); margin: 18px 0 20px; gap: 14px; }
+  .home-side .mode-buttons button { padding: 26px 10px; font-size: 20px; }
+  .home-side .resume-actions { margin: 0 0 12px; display: grid; grid-template-columns: 1fr 1fr; }
+  .home-side .resume-actions button { width: 100%; }
+  .home-side .resume-actions .resume-session-btn { grid-column: 1 / -1; }
+  .home-side .completed-summary { margin: 0 0 8px; }
+  .home-main .qa-heading { margin-top: 0; }
+  .home-main .qa-pair:first-of-type { margin-top: 0; }
+
+  /* Flashcard / Quiz / Exam / Review: bigger text and targets */
+  #flashcard-card { min-height: 440px; font-size: 32px; padding: 48px; line-height: 1.35; }
+  .flashcard-controls { margin-top: 28px; gap: 16px; }
+  .flashcard-controls button, .quiz-controls button, .review-controls button { min-width: 110px; padding: 14px 26px; font-size: 20px; }
+  .quiz-question { font-size: 30px; line-height: 1.3; margin-bottom: 24px; }
+  .tf-candidate { font-size: 22px; padding: 18px 22px; }
+  .quiz-choices { gap: 14px; margin: 24px 0; }
+  .quiz-choices button.choice { font-size: 21px; padding: 20px 24px; line-height: 1.35; }
+  .quiz-controls { margin-top: 30px; gap: 16px; }
+  .review-question { font-size: 26px; line-height: 1.3; }
+  .review-choice { font-size: 20px; padding: 16px 20px; }
+  .review-candidate { font-size: 21px; }
+  .review-item { padding: 26px 30px; }
+
+  /* Arrows and Submit stay in one place: a bar pinned to the bottom of the
+     screen, so they don't move as questions and answers change length. */
+  .quiz-controls, .review-controls, .flashcard-controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 16px 0 20px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    z-index: 20;
+  }
+  #screen-quiz .wrap, #screen-quiz-review .wrap, #screen-flashcard .wrap { padding-bottom: 150px; }
+  #screen-flashcard .session-toolbar { margin-bottom: 6px; }
+  .match-head { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+  .match-head .session-meta { margin: 0; }
+  .match-seed-toggle { font-size: 15px; color: var(--text-muted); font-weight: 600; }
+  .match-options { max-width: 520px; }
+  .quiz-keys, .match-keys { text-align: center; }
+
