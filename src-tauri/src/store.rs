@@ -113,14 +113,21 @@ fn versions_in(data: &Value) -> Value {
     serde_json::json!({ "version": data.get("version"), "schemas": data.get("schemas") })
 }
 
-/// Forget one progress file, or with None every one (after the app itself
-/// rewrote some, as a rename does): the next save reads it again.
+/// Forget one progress file: the next save reads it again.
 fn forget_own(path: Option<&Path>) {
+    if let (Ok(mut own), Some(p)) = (OWN_PROGRESS.lock(), path) {
+        if let Some(own) = own.as_mut() {
+            own.remove(p);
+        }
+    }
+}
+
+/// Forget every progress file in this data folder (after the app itself
+/// rewrote some, as a rename does). Other folders' records stay.
+fn forget_own_under(root: &Path) {
     if let Ok(mut own) = OWN_PROGRESS.lock() {
-        match (own.as_mut(), path) {
-            (Some(own), Some(p)) => { own.remove(p); }
-            (Some(own), None) => own.clear(),
-            _ => {}
+        if let Some(own) = own.as_mut() {
+            own.retain(|p, _| !p.starts_with(root));
         }
     }
 }
@@ -753,7 +760,7 @@ impl Store {
         // A rename rewrites progress files itself (and may put them back):
         // they're read again before the next save, not taken for changes
         // made by another program.
-        forget_own(None);
+        forget_own_under(&self.root);
         // Failed: each step was undone, but an undo can fail too (a full
         // disk fails the undo as well). Put everything back from the backup
         // as a start-up recovery would; if even that fails, keep the copies.
@@ -1552,10 +1559,18 @@ mod tests {
         let s = temp_store("caches");
         s.write_progress("Cells", r#"{"completed":["a"]}"#).unwrap();
         let path = s.progress_file_of("Cells").unwrap().unwrap();
-        // Same length, different owner: still caught.
+        // Same length, different owner: still caught (as a change made
+        // outside the app, which is checked first), and not written over.
         let theirs = fs::read_to_string(&path).unwrap().replace("Cells", "Other");
         std::thread::sleep(std::time::Duration::from_millis(20));
         fs::write(&path, &theirs).unwrap();
+        let err = s.write_progress("Cells", "{}").unwrap_err();
+        assert!(err.contains("changed outside the app"), "{err}");
+        assert_eq!(fs::read_to_string(&path).unwrap(), theirs);
+        // Read again (the bank opened again), the owner check still holds.
+        assert!(s.read_progress("Cells").unwrap_err().contains("belongs to"));
+        assert!(s.write_progress("Cells", "{}").unwrap_err().contains("changed outside the app"));
+        forget_own(Some(&path));
         assert!(s.write_progress("Cells", "{}").unwrap_err().contains("belongs to"));
         // The index edited by hand is read again.
         let index = s.root().join(INDEX_FILE);
