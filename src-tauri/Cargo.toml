@@ -1,6 +1,6 @@
 [package]
 name = "study-website"
-version = "1.9.9"
+version = "2.0.0"
 description = "Study Website desktop app"
 edition = "2021"
 # File locking (the data-folder lock) needs Rust 1.89 or newer.

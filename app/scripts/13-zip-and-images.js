@@ -377,7 +377,7 @@
       var blobUrl = im.bytes && typeof Blob === "function" ? URL.createObjectURL(new Blob([im.bytes], { type: im.type })) : null;
       if (blobUrl) made.push(blobUrl);
       return measureImage(blobUrl || src, im.name).then(function (dim) {
-        rememberChecked(src);
+        rememberChecked(src, dim);
         out[im.n] = { name: im.name, src: src, id: im.id, width: dim.width, height: dim.height, blobUrl: blobUrl };
         return next();
       });
@@ -401,11 +401,24 @@
      and all of them together within the total. A picture that passed once
      isn't decoded again this session. Pictures in the desktop app's own
      store ("asset:") were checked when they were stored. */
-  var checkedPictures = new Set(), checkedChars = 0;
-  function rememberChecked(src) {
+  // src -> its measured size: a later bank with the same picture still has
+  // its stated size compared, without decoding the picture again.
+  var checkedPictures = new Map(), checkedChars = 0;
+  function rememberChecked(src, dim) {
     // Kept within bounds: past ~100 MB of picture text, start again.
     if (checkedChars + src.length > 100 * 1024 * 1024) { checkedPictures.clear(); checkedChars = 0; }
-    if (!checkedPictures.has(src)) { checkedPictures.add(src); checkedChars += src.length; }
+    if (!checkedPictures.has(src)) checkedChars += src.length;
+    checkedPictures.set(src, { width: dim.width, height: dim.height });
+  }
+  /* Sizes are written as whole pixels; a big picture may be a pixel off
+     (an SVG with a fractional size rounds differently between browsers),
+     a small one must match exactly, since a pixel changes its shape. */
+  function sizeMatches(dim, im) {
+    var near = function (a, b) { return a === b || (Math.abs(a - b) <= 1 && a >= 100); };
+    return near(dim.width, im.width) && near(dim.height, im.height);
+  }
+  function sizeError(dim, im) {
+    return new Error("\"" + im.name + "\" is " + dim.width + "×" + dim.height + " pixels, but this bank says " + im.width + "×" + im.height + ". Load the original .zip again.");
   }
   function inlinePictureBytes(src) {
     var b64 = src.slice(src.indexOf(",") + 1);
@@ -418,8 +431,10 @@
       if (err || im.src.indexOf("data:") !== 0) return;
       var size = inlinePictureBytes(im.src);
       total += size;
+      var known = checkedPictures.get(im.src);
       if (size > MAX_IMAGE_BYTES) err = new Error("\"" + im.name + "\" is larger than 8 MB. Make it smaller and load the .zip again.");
-      else if (!checkedPictures.has(im.src)) list.push(im);
+      else if (!known) list.push(im);
+      else if (!sizeMatches(known, im)) err = sizeError(known, im);
     });
     if (!err && total > MAX_IMAGES_TOTAL) err = new Error("This bank's pictures add up to more than 25 MB. Make them smaller and load the .zip again.");
     var tagged = function (e) { if (e && typeof e === "object") e.picture = true; throw e; };
@@ -429,11 +444,8 @@
       if (failed || i >= list.length) return Promise.resolve();
       var im = list[i++];
       return measureImage(im.src, im.name).then(function (dim) {
-        // Sizes are written rounded to whole pixels.
-        if (!(Math.abs(dim.width - im.width) <= 1 && Math.abs(dim.height - im.height) <= 1)) {
-          throw new Error("\"" + im.name + "\" is " + dim.width + "×" + dim.height + " pixels, but this bank says " + im.width + "×" + im.height + ". Load the original .zip again.");
-        }
-        rememberChecked(im.src);
+        rememberChecked(im.src, dim);
+        if (!sizeMatches(dim, im)) throw sizeError(dim, im);
         return next();
       });
     };

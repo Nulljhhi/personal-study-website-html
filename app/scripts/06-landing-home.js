@@ -211,6 +211,7 @@
       ? "Saving is taking longer than usual. Wait a moment and try again, or quit now and lose what hasn't been written yet."
       : "A save didn't work" + (state.lastSaveError ? " (" + state.lastSaveError + ")" : "") +
         ". Try again, or quit now and lose the changes that weren't saved.";
+    holdGameFor("quit-modal");
     byId("quit-modal").classList.remove("hidden");
     byId("quit-retry-btn").focus();
   }
@@ -237,8 +238,8 @@
   }
   function setupQuitDialog() {
     var modal = byId("quit-modal");
-    byId("quit-cancel-btn").addEventListener("click", function () { modal.classList.add("hidden"); });
-    byId("quit-retry-btn").addEventListener("click", function () { modal.classList.add("hidden"); requestQuit(); });
+    byId("quit-cancel-btn").addEventListener("click", function () { modal.classList.add("hidden"); releaseGameFrom("quit-modal"); });
+    byId("quit-retry-btn").addEventListener("click", function () { modal.classList.add("hidden"); releaseGameFrom("quit-modal"); requestQuit(); });
     byId("quit-anyway-btn").addEventListener("click", function () { modal.classList.add("hidden"); forceQuit(); });
   }
 
@@ -266,9 +267,10 @@
     var api = window.__TAURI__ || {};
     var modal = byId("instance-modal");
     if (!modal) return;
-    byId("instance-ok-btn").addEventListener("click", function () { modal.classList.add("hidden"); });
+    byId("instance-ok-btn").addEventListener("click", function () { modal.classList.add("hidden"); releaseGameFrom("instance-modal"); });
     if (!api.event || typeof api.event.listen !== "function") return;
     Promise.resolve(api.event.listen("second-instance", function () {
+      holdGameFor("instance-modal");
       modal.classList.remove("hidden");
       byId("instance-ok-btn").focus();
     })).catch(function () {});

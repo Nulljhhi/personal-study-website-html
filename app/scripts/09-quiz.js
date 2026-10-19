@@ -292,6 +292,12 @@
     return "checkpoint-" + Date.now() + "-" + Math.floor(Math.random() * 1e6);
   }
 
+  /* A deep copy of the plain data a checkpoint holds (arrays, objects,
+     strings, numbers). */
+  function copySessionValue(v) {
+    return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+  }
+
   function saveQuizProgress() {
     var q = state.quiz;
     if (!q.order.length || !state.unitText) return;
@@ -307,14 +313,16 @@
       bankId: undefined, // filled in below, once this bank's ID is known
       answeredCount: answered, totalCount: q.order.length,
       unitText: state.unitText,
-      mode: q.mode, seed: q.seed, options: q.options, poolIds: q.poolIds,
+      // Copies, not the live attempt: the desktop save waits for the bank's
+      // ID, and answers given meanwhile mustn't change what was saved.
+      mode: q.mode, seed: q.seed, options: copySessionValue(q.options), poolIds: copySessionValue(q.poolIds),
       // The exact questions and choices, so resuming never depends on
       // how choices happen to be generated in a later version.
       generator: 3,
       orderIds: q.order.map(function (item) { return item.id; }),
       tfFlags: q.tfFlags.slice(),
-      choices: q.choices,
-      answers: q.answers, index: q.index, showProgress: state.showProgress,
+      choices: copySessionValue(q.choices),
+      answers: q.answers.slice(), index: q.index, showProgress: state.showProgress,
       showSeed: state.showSeed, sessionExpanded: state.sessionExpanded
     };
     if (hasDesktop) {

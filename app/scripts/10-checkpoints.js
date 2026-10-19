@@ -46,8 +46,12 @@
   /* Checkpoint tiles are cached by file time and size, so only new or
      changed checkpoints are read and validated again. */
   var checkpointInfoCache = new Map();
+  /* Bumped by every list render: only the newest one draws, and only it
+     updates the cache (an older answer may describe files since changed). */
+  var checkpointsRender = 0;
 
-  function listCheckpointInfo() {
+  function listCheckpointInfo(isCurrent) {
+    var current = isCurrent || function () { return true; };
     var describe = function (id, text) {
       try { return describeCheckpoint(id, text); }
       catch (err) { return { id: id, ok: false, savedAt: "", title: "Unreadable checkpoint" }; }
@@ -60,14 +64,14 @@
     return desktopCall("list_checkpoint_meta").then(function (metas) {
       if (!Array.isArray(metas)) return full();
       var ids = new Set(metas.map(function (m) { return m[0]; }));
-      checkpointInfoCache.forEach(function (_, k) { if (!ids.has(k)) checkpointInfoCache.delete(k); });
+      if (current()) checkpointInfoCache.forEach(function (_, k) { if (!ids.has(k)) checkpointInfoCache.delete(k); });
       return mapLimited(metas, 4, function (m) {
         var id = m[0], stamp = m[1] + ":" + m[2];
         var hit = checkpointInfoCache.get(id);
         if (hit && hit.stamp === stamp) return hit.info;
         return desktopCall("read_checkpoint", { id: id })
           .then(function (text) { return describe(id, text); }, function () { return describe(id, ""); })
-          .then(function (info) { checkpointInfoCache.set(id, { stamp: stamp, info: info }); return info; });
+          .then(function (info) { if (current()) checkpointInfoCache.set(id, { stamp: stamp, info: info }); return info; });
       });
     }, full);
   }
@@ -84,8 +88,11 @@
     if (!grid) return;
     if (errorEl) errorEl.textContent = "";
     grid.textContent = "";
-    listCheckpointInfo()
+    var mine = ++checkpointsRender;
+    var current = function () { return mine === checkpointsRender; };
+    listCheckpointInfo(current)
       .then(function (items) {
+        if (!current()) return;
         grid.textContent = "";
         items.sort(function (a, b) { return (b.savedAt || "").localeCompare(a.savedAt || ""); });
         if (!items.length) {
@@ -97,7 +104,7 @@
         }
         items.forEach(function (item) { grid.appendChild(buildCheckpointTile(item)); });
       })
-      .catch(function (err) { notifyError(err.message); });
+      .catch(function (err) { if (current()) notifyError(err.message); });
   }
 
   function buildCheckpointTile(item) {

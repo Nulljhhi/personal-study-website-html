@@ -81,6 +81,9 @@
     target.classList.add("active");
     state.screen = name;
     document.body.setAttribute("data-screen", name);
+    // A game was running when another tab let go of this bank: now that
+    // it's left, read the newer progress and start saving (05-progress.js).
+    if (state.tabTakeoverPending && name !== "game") finishTabTakeover();
     // Focus left behind on the screen that was just hidden is lost for
     // keyboard and screen-reader users: move it to the new screen's heading.
     var active = document.activeElement;

@@ -23,12 +23,16 @@ async function clickSpot(page, sel, x, y) {
     img.scrollIntoView({ block: 'nearest' });
     const r = img.getBoundingClientRect();
     const cx = r.left + r.width * p.x / 100, cy = r.top + r.height * p.y / 100;
-    // What's at that point, as a real click would find it (fog over the
-    // picture is). If the point falls outside the question altogether,
-    // WebKit's zoomed coordinates have put it off the picture: use the picture.
+    // What's at that point, as a real click would find it: the picture's
+    // pad, or fog over it (a class on the question box). Anything else
+    // (the question text, the feedback below, or outside the question)
+    // means WebKit's zoomed coordinates have put the point off the
+    // picture: use the picture.
     const hit = document.elementFromPoint(cx, cy);
-    const box = img.closest('.q-box');
-    const target = hit && box && box.contains(hit) ? hit : img;
+    const pad = img.closest('.hs-pad'), box = img.closest('.q-box');
+    const fogged = hit === box && box && /fogged/.test(box.className);
+    const target = hit && (pad.contains(hit) || fogged) ? hit : img;
+    window.__lastHit = (hit ? hit.tagName.toLowerCase() + (hit.id ? '#' + hit.id : '') + (hit.className && typeof hit.className === 'string' ? '.' + hit.className.trim().split(/\s+/).join('.') : '') : 'nothing') + ' -> ' + (target === img ? 'picture' : 'as hit');
     for (const type of ['mousedown', 'mouseup', 'click']) {
       target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 }));
     }
@@ -105,7 +109,7 @@ async function clickSpot(page, sel, x, y) {
   check(/^hs:30/.test(await page.evaluate(() => StudyApp.state.quiz.answers[StudyApp.state.quiz.index])), 'with instant feedback the first click is final');
   await toQ(3);
   await clickSpot(page, '#quiz-figure', 10, 90);
-  check(/Not quite/.test(await page.textContent('#quiz-feedback')), 'a click elsewhere is wrong: ' + await page.textContent('#quiz-feedback') + ' / ' + await page.evaluate(() => StudyApp.state.quiz.answers[StudyApp.state.quiz.index]));
+  check(/Not quite/.test(await page.textContent('#quiz-feedback')), 'a click elsewhere is wrong: ' + await page.textContent('#quiz-feedback') + ' / ' + await page.evaluate(() => StudyApp.state.quiz.answers[StudyApp.state.quiz.index]) + ' / hit ' + await page.evaluate(() => window.__lastHit || 'n/a'));
   check(await page.isVisible('#quiz-figure .hs-marker.miss'), 'a missed pick shows in red');
   // Keyboard: arrows move a cursor on the picture, Enter picks.
   await page.evaluate(() => StudyApp.showScreen('home'));

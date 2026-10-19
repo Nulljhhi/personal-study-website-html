@@ -85,6 +85,15 @@ jobs:
 
       # Saving, renaming, recovery and the picture store, against real
       # folders on each system (file locking and sync differ on Windows).
+      # Failures are also printed as annotations, which can be read
+      # without the full log.
       - name: Rust tests
         working-directory: src-tauri
-        run: cargo test --locked
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --locked 2>&1 | tee test.log || {
+            status=$?
+            grep -E "panicked at|^test .* FAILED|^error|left:|right:|^  [a-z].*:" test.log | head -30 | sed 's/^/::error::/'
+            exit $status
+          }

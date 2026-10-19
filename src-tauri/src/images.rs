@@ -60,10 +60,22 @@ pub fn externalize(root: &Path, text: &str) -> Result<String, String> {
 /// externalize, also saying how many pictures it newly wrote (they're
 /// unused until the bank or checkpoint holding them is saved).
 pub fn externalize_counting(root: &Path, text: &str) -> Result<(String, usize), String> {
-    let mut written = 0;
+    let mut written = Vec::new();
+    let result = externalize_into(root, text, &mut written);
+    if result.is_err() {
+        // A later picture failed (a full disk, say): the ones this call
+        // wrote are used by nothing, and weren't there before it, so they go.
+        for path in &written {
+            let _ = fs::remove_file(path);
+        }
+    }
+    result.map(|t| (t, written.len()))
+}
+
+fn externalize_into(root: &Path, text: &str, written: &mut Vec<PathBuf>) -> Result<String, String> {
     let lines: Vec<&str> = text.split('\n').collect();
     let Some(at) = lines.iter().position(|l| l.trim_end_matches('\r').trim() == IMAGE_SECTION) else {
-        return Ok((text.to_string(), 0));
+        return Ok(text.to_string());
     };
     let dir = root.join(IMAGES_DIR);
     let mut out: Vec<String> = lines[..=at].iter().map(|l| l.to_string()).collect();
@@ -106,11 +118,11 @@ pub fn externalize_counting(root: &Path, text: &str) -> Result<(String, usize), 
         if !path.is_file() {
             fs::create_dir_all(&dir).map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
             write_durable(&path, &bytes)?;
-            written += 1;
+            written.push(path);
         }
         out.push(format!("{head}: asset:{name}"));
     }
-    Ok((out.join("\n"), written))
+    Ok(out.join("\n"))
 }
 
 /// The bytes of a stored picture.
@@ -174,6 +186,25 @@ mod tests {
     fn bank_with_picture() -> String {
         let b64 = base64::engine::general_purpose::STANDARD.encode(PNG);
         format!("unit_title: A\n\nquestion: Q?\nanswer: A\n\n{IMAGE_SECTION}\nImg.Q1.png 10x20 #abcdef12: data:image/png;base64,{b64}\n")
+    }
+
+    // Review R02: when a later picture can't be stored, the ones the same
+    // save already wrote are removed, not left unused.
+    #[test]
+    fn a_failed_save_leaves_no_pictures_behind() {
+        let root = std::env::temp_dir().join(format!("sw-images-partial-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join(IMAGES_DIR)).unwrap();
+        let (a, b) = (b"\x89PNG first".to_vec(), b"\x89PNG second".to_vec());
+        let enc = |x: &[u8]| base64::engine::general_purpose::STANDARD.encode(x);
+        // A folder where the second picture goes makes its write fail.
+        let second = root.join(IMAGES_DIR).join(format!("{:x}.png", Sha256::digest(&b)));
+        fs::create_dir_all(&second).unwrap();
+        let text = format!("unit_title: A\n\n{IMAGE_SECTION}\nImg.Q1.png 1x1 #abcdef12: data:image/png;base64,{}\nImg.Q2.png 1x1 #abcdef13: data:image/png;base64,{}\n", enc(&a), enc(&b));
+        assert!(externalize_counting(&root, &text).is_err());
+        let first = root.join(IMAGES_DIR).join(format!("{:x}.png", Sha256::digest(&a)));
+        assert!(!first.exists(), "the first picture was left behind");
+        fs::remove_dir_all(&root).unwrap();
     }
 
     // A picture too big to read back later isn't stored.

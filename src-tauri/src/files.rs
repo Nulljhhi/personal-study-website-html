@@ -187,7 +187,19 @@ pub fn read_limited(path: &Path, limit: u64) -> Result<String, String> {
     if meta.len() > limit {
         return Err(format!("{} is too large to open.", path.display()));
     }
-    fs::read_to_string(path).map_err(|e| format!("Could not read {}: {e}", path.display()))
+    // The size is checked again while reading: a file that grows after
+    // the check above (another program still writing it) is read no
+    // further than the limit, not into memory whole.
+    use std::io::Read;
+    let file = fs::File::open(path).map_err(|e| format!("Could not read {}: {e}", path.display()))?;
+    let mut bytes = Vec::new();
+    file.take(limit + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("Could not read {}: {e}", path.display()))?;
+    if bytes.len() as u64 > limit {
+        return Err(format!("{} is too large to open.", path.display()));
+    }
+    String::from_utf8(bytes).map_err(|_| format!("Could not read {}: it isn't UTF-8 text", path.display()))
 }
 
 /// Read a file the user dropped on the window. Native drag-and-drop gives
@@ -325,6 +337,21 @@ mod tests {
     // must leave the old file as it was and no temp file behind. Made to
     // fail here by putting a folder or a file where the write has to go,
     // which fails the same way for every user, root included.
+    // Review R03: reading stops at the limit, and the text comes back whole.
+    #[test]
+    fn limited_reads_stop_at_the_limit() {
+        let dir = std::env::temp_dir().join(format!("sw-files-limit-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("a.txt");
+        fs::write(&path, "héllo").unwrap();
+        assert_eq!(read_limited(&path, 6).unwrap(), "héllo");
+        assert!(read_limited(&path, 5).unwrap_err().contains("too large"));
+        fs::write(&path, [0xff, 0xfe]).unwrap();
+        assert!(read_limited(&path, 10).unwrap_err().contains("UTF-8"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn failed_writes_keep_the_old_file() {
         let dir = std::env::temp_dir().join(format!("sw-faulty-{}", std::process::id()));

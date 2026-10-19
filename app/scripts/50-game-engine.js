@@ -143,6 +143,21 @@
     }
   });
 
+  /* An app notice over a running game (another copy was started, a quit
+     problem) holds the game still until it's closed, then lets it go on
+     as it was: a game that was already paused stays paused. */
+  var heldByNotice = null;
+  function holdGameFor(modalId) {
+    if (heldByNotice || !game || game.over || game.paused || state.screen !== "game") return;
+    heldByNotice = modalId;
+    setGamePausedQuiet(true);
+  }
+  function releaseGameFrom(modalId) {
+    if (heldByNotice !== modalId) return;
+    heldByNotice = null;
+    if (game && !game.over && game.paused) setGamePausedQuiet(false);
+  }
+
   function setGamePausedQuiet(paused) {
     if (!game || game.over) return;
     game.paused = paused;
