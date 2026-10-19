@@ -7,6 +7,9 @@
     // Shortcuts like Ctrl+C or Alt+Tab aren't game keys.
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (!byId("fish-shop-modal").classList.contains("hidden")) return;
+    // Any other dialog over the game (a notice, a quit problem) owns the
+    // keys; only the pause menu leaves P and Escape to the game.
+    if (document.querySelector(".modal-overlay:not(.hidden):not(#game-pause-modal)")) return;
     var k = event.key.toLowerCase();
     if (k === "p" || k === "escape") {
       event.preventDefault();
@@ -174,8 +177,13 @@
       whenProgressReady(function () {
         if (gameSetupFor !== resetId) return;
         resetGameProgress(resetId);
-        renderProgressPanel(gameSetupFor);
+        // Rebuild the setup as if it had just been opened, so the game's own
+        // options (perks, tracks, maps, shortcuts...) and their text follow
+        // the reset straight away.
+        if (resetId === "fishing") byId("game-minutes").value = String(state.gameData.fishing.minutes);
+        renderProgressPanel(resetId);
         updateGameSetup();
+        onGameSetupOpened(resetId);
       });
     });
     byId("game-setup-back-btn").addEventListener("click", function () { renderGamesPage(); showScreen("games"); });

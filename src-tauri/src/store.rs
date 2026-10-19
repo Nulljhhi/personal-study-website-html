@@ -76,11 +76,75 @@ fn stamp(path: &Path) -> Option<Stamp> {
 /// otherwise be read and checked again each time; with years of banks
 /// that's thousands of entries).
 static INDEX_CACHE: Mutex<Option<(PathBuf, Stamp, Map<String, Value>)>> = Mutex::new(None);
-/// Progress files this app wrote, with the title they belong to: while
-/// unchanged on disk they don't need reading back before the next save.
-static OWN_PROGRESS: Mutex<Option<std::collections::HashMap<PathBuf, (Stamp, String)>>> = Mutex::new(None);
+/// Progress files this app last read or wrote, with the title they belong
+/// to: while unchanged on disk they don't need reading back before the next
+/// save, and once changed by another program (a sync or backup tool) they
+/// aren't saved over (write_progress).
+/// Each with its format versions ({"version", "schemas"}), so a newer
+/// version's file is never replaced even without being read again.
+static OWN_PROGRESS: Mutex<Option<std::collections::HashMap<PathBuf, (Stamp, String, Value)>>> = Mutex::new(None);
 /// Progress files written but not yet forced onto the disk.
 static UNSYNCED: Mutex<std::collections::BTreeSet<PathBuf>> = Mutex::new(std::collections::BTreeSet::new());
+
+/// Note a progress file as the app has it now (just read or written).
+fn remember_own(path: &Path, title: &str, versions: Value) {
+    if let Ok(mut own) = OWN_PROGRESS.lock() {
+        let own = own.get_or_insert_with(Default::default);
+        match stamp(path) {
+            Some(at) => { own.insert(path.to_path_buf(), (at, title.to_string(), versions)); }
+            None => { own.remove(path); }
+        }
+    }
+}
+
+/// A progress file's format versions: {"version": .., "schemas": {..}}.
+fn versions_of(raw: &str) -> Value {
+    #[derive(serde::Deserialize)]
+    struct Versions {
+        version: Option<Value>,
+        schemas: Option<Value>,
+    }
+    match serde_json::from_str::<Versions>(raw) {
+        Ok(v) => serde_json::json!({ "version": v.version, "schemas": v.schemas }),
+        Err(_) => Value::Null,
+    }
+}
+fn versions_in(data: &Value) -> Value {
+    serde_json::json!({ "version": data.get("version"), "schemas": data.get("schemas") })
+}
+
+/// Forget one progress file, or with None every one (after the app itself
+/// rewrote some, as a rename does): the next save reads it again.
+fn forget_own(path: Option<&Path>) {
+    if let Ok(mut own) = OWN_PROGRESS.lock() {
+        match (own.as_mut(), path) {
+            (Some(own), Some(p)) => { own.remove(p); }
+            (Some(own), None) => own.clear(),
+            _ => {}
+        }
+    }
+}
+
+/// Why the progress file on disk is from a newer version than `data`, the
+/// progress about to replace it: a higher format version, or a newer (or
+/// unknown) game section. None if it isn't.
+fn newer_progress(old: &Value, data: &Value) -> Option<String> {
+    let num = |v: Option<&Value>| v.and_then(Value::as_u64).unwrap_or(0);
+    let (have, want) = (num(old.get("version")), num(data.get("version")));
+    if have > want {
+        return Some(format!("format {have}"));
+    }
+    let empty = Map::new();
+    let mine = data.get("schemas").and_then(Value::as_object).unwrap_or(&empty);
+    for (name, v) in old.get("schemas").and_then(Value::as_object).unwrap_or(&empty) {
+        let theirs = v.as_u64().unwrap_or(0);
+        match mine.get(name).and_then(Value::as_u64) {
+            Some(ours) if ours >= theirs => {}
+            _ => return Some(format!("{name} data version {theirs}")),
+        }
+    }
+    None
+}
 
 pub struct Store {
     root: PathBuf,
@@ -446,7 +510,12 @@ impl Store {
             (ProgressFile::Valid(Some(owner)), _) if owner != title => {
                 Err(format!("DAMAGED: {} says it belongs to \"{owner}\".", path.display()))
             }
-            (ProgressFile::Valid(_), raw) => Ok(raw.unwrap_or_default()),
+            (ProgressFile::Valid(owner), raw) => {
+                let raw = raw.unwrap_or_default();
+                // What the page now holds; a change after this is someone else's.
+                remember_own(&path, owner.as_deref().unwrap_or(title), versions_of(&raw));
+                Ok(raw)
+            }
             (ProgressFile::Damaged(e), _) => Err(format!("DAMAGED: Saved progress couldn't be read ({e}).")),
         }
     }
@@ -456,13 +525,29 @@ impl Store {
         let title = title.trim();
         let id = self.bank_id(title, true)?.ok_or("No bank ID")?;
         let path = self.progress_path_for(&id, true)?;
-        // Written by this app and unchanged since: it's ours, no need to
-        // read the whole file back.
-        let known = OWN_PROGRESS.lock().ok().and_then(|own| {
-            let (at, owner) = own.as_ref()?.get(&path)?.clone();
-            (Some(at) == stamp(&path)).then(|| ProgressFile::Valid(Some(owner)))
-        });
-        match known.unwrap_or_else(|| inspect_progress(&path)) {
+        // Read or written by this app and unchanged since: it's ours, no
+        // need to read the whole file back. Changed since by another program
+        // (a sync tool bringing another computer's progress, say): saving
+        // now would replace that with older progress, so it's refused until
+        // the bank is opened again, which reads the new file.
+        let seen = OWN_PROGRESS.lock().ok().and_then(|own| own.as_ref()?.get(&path).cloned());
+        let now = stamp(&path);
+        if let (Some((at, _, _)), Some(now)) = (&seen, &now) {
+            if at != now {
+                return Err(format!(
+                    "Progress for \"{title}\" wasn't saved: its file was changed outside the app since this bank was opened (by a sync or backup program, say), and nothing was written over it. Open the bank again to load that progress."
+                ));
+            }
+        }
+        let known = seen.filter(|(at, _, _)| Some(at) == now.as_ref());
+        let (found, on_disk) = match known {
+            Some((_, owner, versions)) => (ProgressFile::Valid(Some(owner)), versions),
+            None => match load_progress(&path) {
+                (found, Some(raw)) => (found, versions_of(&raw)),
+                (found, None) => (found, Value::Null),
+            },
+        };
+        match found {
             ProgressFile::Damaged(e) => {
                 return Err(format!(
                     "Progress for \"{title}\" wasn't saved so the damaged file isn't overwritten ({e}). Move that file somewhere else to start fresh."
@@ -481,6 +566,12 @@ impl Store {
         if !data.is_object() {
             return Err("The progress to save isn't valid.".into());
         }
+        // A file from a newer version of the app is never replaced by this
+        // one's older format (the page refuses to load it, but it can
+        // arrive while the bank is open).
+        if let Some(why) = newer_progress(&on_disk, &data) {
+            return Err(format!("Progress for \"{title}\" wasn't saved: its file was saved by a newer version of Study Website ({why}), and this version won't write over it. Update the app."));
+        }
         data["unitTitle"] = Value::String(title.to_string());
         data["bankId"] = Value::String(id.clone());
         // Compact: only the app reads it, and it's written after every answer.
@@ -489,12 +580,9 @@ impl Store {
         // cut can cost the latest answer, never the file. sync_progress makes
         // the last swap permanent when the app quits.
         let written = write_safe(&path, &text);
-        if let Ok(mut own) = OWN_PROGRESS.lock() {
-            let own = own.get_or_insert_with(Default::default);
-            match (&written, stamp(&path)) {
-                (Ok(()), Some(at)) => { own.insert(path.clone(), (at, title.to_string())); }
-                _ => { own.remove(&path); }
-            }
+        match &written {
+            Ok(()) => remember_own(&path, title, versions_in(&data)),
+            Err(_) => forget_own(Some(&path)),
         }
         written?;
         if let Ok(mut unsynced) = UNSYNCED.lock() {
@@ -662,6 +750,10 @@ impl Store {
         }
         self.note_pictures_may_be_unused();
         let result = self.rename_bank_steps(name, new_title);
+        // A rename rewrites progress files itself (and may put them back):
+        // they're read again before the next save, not taken for changes
+        // made by another program.
+        forget_own(None);
         // Failed: each step was undone, but an undo can fail too (a full
         // disk fails the undo as well). Put everything back from the backup
         // as a start-up recovery would; if even that fails, keep the copies.
@@ -1259,6 +1351,43 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Review R01: progress another program replaced while the bank is open
+    // isn't saved over, and a newer version's file never is.
+    #[test]
+    fn changed_or_newer_progress_isnt_saved_over() {
+        let s = temp_store("external");
+        let v3 = r#"{"format":"study-website-completed","version":3,"schemas":{"garden":2},"completed":["a"]}"#;
+        s.write_progress("Cells", v3).unwrap();
+        let path = s.progress_file_of("Cells").unwrap().unwrap();
+        // A sync program brings another computer's progress (same version).
+        let theirs = r#"{"format":"study-website-completed","version":3,"schemas":{"garden":2},"unitTitle":"Cells","completed":["a","b","c"]}"#;
+        fs::write(&path, theirs).unwrap();
+        let err = s.write_progress("Cells", v3).unwrap_err();
+        assert!(err.contains("changed outside the app"), "{err}");
+        assert_eq!(fs::read_to_string(&path).unwrap(), theirs);
+        // Opening the bank again reads it; saving works from then on.
+        assert_eq!(s.read_progress("Cells").unwrap(), theirs);
+        s.write_progress("Cells", v3).unwrap();
+        // A newer version's file arriving meanwhile is refused even after a read.
+        let newer = r#"{"format":"study-website-completed","version":4,"unitTitle":"Cells","completed":[]}"#;
+        fs::write(&path, newer).unwrap();
+        assert!(s.read_progress("Cells").is_ok());
+        let err = s.write_progress("Cells", v3).unwrap_err();
+        assert!(err.contains("newer version") && err.contains("format 4"), "{err}");
+        let section = r#"{"format":"study-website-completed","version":3,"schemas":{"garden":2,"futureGame":1},"unitTitle":"Cells"}"#;
+        fs::write(&path, section).unwrap();
+        s.read_progress("Cells").unwrap();
+        assert!(s.write_progress("Cells", v3).unwrap_err().contains("futureGame data version 1"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), section);
+        // A rename rewrites the file itself: no false alarm afterwards.
+        fs::write(&path, v3.replace("\"completed\"", "\"unitTitle\":\"Cells\",\"completed\"")).unwrap();
+        s.read_progress("Cells").unwrap();
+        s.save_bank("Cells.txt", &bank("Cells")).unwrap();
+        s.rename_bank("Cells.txt", "Organs").unwrap();
+        s.write_progress("Organs", v3).unwrap();
+        fs::remove_dir_all(s.root()).unwrap();
+    }
 
     fn temp_store(tag: &str) -> Store {
         let dir = std::env::temp_dir().join(format!("sw-store-{tag}-{}", std::process::id()));

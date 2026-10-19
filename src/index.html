@@ -2671,6 +2671,7 @@
     "- Completed questions are written to disk as soon as you reach the review page, so closing the app never loses them.",
     "- Pictures from .zip banks are kept once each in `images/`, named by their content, and saved banks and checkpoints point to them, so a picture used by a bank and several checkpoints is stored once. Pictures nothing uses any more are removed the next time the app starts after a bank or checkpoint was deleted, renamed or replaced (the `.check-pictures` file marks that one is due). Leave the `images/` folder in place: a saved bank needs it.",
     "- Only one copy of the app runs at a time, so two windows can't save over each other. Starting it again brings the open window forward and explains why the new copy closed. As a second safeguard the running copy holds a lock on the folder (the `.lock` file): a copy that somehow starts anyway, for example from another user account, says so and doesn't read or save anything.",
+    "- If another program changes a bank's progress file while the bank is open (a sync program such as OneDrive or Dropbox bringing progress from another computer, say), the app doesn't save over it: it says so, and opening the bank again loads that progress. A progress file saved by a newer version of the app is never overwritten by an older one.",
     "- Renaming a bank first copies every file it changes into `rename-backup/`. If the app stops partway through (a crash or a power cut), the next start puts those files back as they were before the rename and tells you; otherwise the copies are removed as soon as the rename is done.",
     "- Opened as a plain web page in a browser, the folder buttons are disabled and progress is kept in that browser's own storage. If the browser blocks or fills that storage (private windows often do), the app says progress is kept for this session only.",
     "- If a saved progress file can't be read, the app tells you and won't save over it, so it can still be recovered. Move or fix that file, then reopen the bank.",
@@ -2680,7 +2681,9 @@
     "",
     "## Loading your unit file",
     "",
-    "Open the study website and either drag the file onto the drop zone or press the select file button and pick the file. A .zip with the unit file and its pictures works the same way (see **Pictures and hotspot questions**, the next page). When the file parses, the Home screen appears with the unit title, the four study modes, and every question with its real answer. When something is wrong with the file, a message pops up in the corner naming the problem."
+    "Open the study website and either drag the file onto the drop zone or press the select file button and pick the file. A .zip with the unit file and its pictures works the same way (see **Pictures and hotspot questions**, the next page). When the file parses, the Home screen appears with the unit title, the four study modes, and every question with its real answer. When something is wrong with the file, a message pops up in the corner naming the problem.",
+    "",
+    "In a browser, progress is kept in that browser's storage. If the same bank is open in two tabs, only one of them saves it; the other says so, and saves again once the first tab closes the bank (after any game it's in has ended). In an older browser without this support, a tab stops saving a bank as soon as another tab saves it, and opening the bank again there picks up the saved progress.",
   ];
 
   var IMAGE_DOCS_LINES = [
@@ -3065,6 +3068,9 @@
     target.classList.add("active");
     state.screen = name;
     document.body.setAttribute("data-screen", name);
+    // A game was running when another tab let go of this bank: now that
+    // it's left, read the newer progress and start saving (05-progress.js).
+    if (state.tabTakeoverPending && name !== "game") finishTabTakeover();
     // Focus left behind on the screen that was just hidden is lost for
     // keyboard and screen-reader users: move it to the new screen's heading.
     var active = document.activeElement;
@@ -3996,13 +4002,14 @@
   /* Resolves once it's known whether this tab saves the bank. */
   function claimTabLock(title, token) {
     state.tabReadOnly = false;
+    state.tabTakeoverPending = false;
     if (hasDesktop) return Promise.resolve();
     // This tab saves this bank already (reopened, or read again).
     if (tabLock.release && tabLock.title === title) return Promise.resolve();
     if (tabLock.release) { tabLock.release(); tabLock.release = null; }
     tabLock.title = title;
     var locks = typeof navigator !== "undefined" && navigator.locks;
-    if (!locks || typeof locks.request !== "function") return Promise.resolve();
+    if (!locks || typeof locks.request !== "function") { watchOtherTabs(); return Promise.resolve(); }
     var decided;
     var known = new Promise(function (r) { decided = r; });
     var name = "study-website-progress:" + title;
@@ -4018,25 +4025,51 @@
       locks.request(name, function () {
         if (!current()) return null;
         var held = hold();
-        state.tabReadOnly = false;
-        if (state.screen === "game" && game && !game.over) {
-          notify("The other tab closed this bank. Reopen it here to save its progress.");
+        if (state.screen === "game" && game) {
+          // A game holds on to the old profile, so its progress can't be
+          // merged with what the other tab saved. Saving stays off until
+          // the game is left; then the newer progress is read (see
+          // finishTabTakeover, called by showScreen).
+          state.tabTakeoverPending = true;
+          notify("The other tab closed this bank. This game still isn't saved; leave it and this tab saves the bank's progress from then on.");
         } else {
-          notify("The other tab closed this bank, so this tab saves its progress now.");
-          // Read what the other tab saved, keeping what was marked here
-          // (marks and scores made before a load finishes are merged in).
-          var marks = state.completed, scores = state.highScores;
-          loadCompletedForUnit();
-          Object.keys(marks).forEach(function (k) { state.completed[k] = true; });
-          Object.keys(scores).forEach(function (k) { state.highScores[k] = scores[k]; });
-          completedRev++;
-          persistCompleted();
+          finishTabTakeover();
         }
         return held;
       }).catch(function () {});
       return null;
-    }).catch(function () { /* locks refused (a sandboxed frame): no lock */ decided(); });
+    }).catch(function () { /* locks refused (a sandboxed frame): no lock */ watchOtherTabs(); decided(); });
     return known;
+  }
+  /* Without locks (an old browser), the next best thing: when another tab
+     saves the bank this tab has open, this tab stops saving it, so it
+     can't write its older copy over that one. Opening the bank again reads
+     what was saved and starts saving here again. */
+  var watchingTabs = false;
+  function watchOtherTabs() {
+    if (watchingTabs || hasDesktop || typeof window === "undefined") return;
+    watchingTabs = true;
+    window.addEventListener("storage", function (e) {
+      if (!state.unit || state.tabReadOnly || e.key !== LOCAL_PREFIX + state.unit.unitTitle || e.newValue === null) return;
+      state.tabReadOnly = true;
+      notifyError("Another tab of this browser just saved this bank's progress, so this tab stops saving it (that tab's progress is kept). Open the bank again here to load it and save from this tab.");
+    });
+  }
+
+  /* This tab has the lock now: read what the other tab saved, keeping the
+     marks and scores made here meanwhile (they're merged into a load), and
+     start saving. */
+  function finishTabTakeover() {
+    state.tabTakeoverPending = false;
+    state.tabReadOnly = false;
+    if (!state.unit) return;
+    notify("The other tab closed this bank, so this tab saves its progress now.");
+    var marks = state.completed, scores = state.highScores;
+    loadCompletedForUnit();
+    Object.keys(marks).forEach(function (k) { state.completed[k] = true; });
+    Object.keys(scores).forEach(function (k) { state.highScores[k] = scores[k]; });
+    completedRev++;
+    persistCompleted();
   }
 
   /* Loads in the background. Anything marked before the load finishes is
@@ -4729,6 +4762,7 @@
       ? "Saving is taking longer than usual. Wait a moment and try again, or quit now and lose what hasn't been written yet."
       : "A save didn't work" + (state.lastSaveError ? " (" + state.lastSaveError + ")" : "") +
         ". Try again, or quit now and lose the changes that weren't saved.";
+    holdGameFor("quit-modal");
     byId("quit-modal").classList.remove("hidden");
     byId("quit-retry-btn").focus();
   }
@@ -4755,8 +4789,8 @@
   }
   function setupQuitDialog() {
     var modal = byId("quit-modal");
-    byId("quit-cancel-btn").addEventListener("click", function () { modal.classList.add("hidden"); });
-    byId("quit-retry-btn").addEventListener("click", function () { modal.classList.add("hidden"); requestQuit(); });
+    byId("quit-cancel-btn").addEventListener("click", function () { modal.classList.add("hidden"); releaseGameFrom("quit-modal"); });
+    byId("quit-retry-btn").addEventListener("click", function () { modal.classList.add("hidden"); releaseGameFrom("quit-modal"); requestQuit(); });
     byId("quit-anyway-btn").addEventListener("click", function () { modal.classList.add("hidden"); forceQuit(); });
   }
 
@@ -4784,9 +4818,10 @@
     var api = window.__TAURI__ || {};
     var modal = byId("instance-modal");
     if (!modal) return;
-    byId("instance-ok-btn").addEventListener("click", function () { modal.classList.add("hidden"); });
+    byId("instance-ok-btn").addEventListener("click", function () { modal.classList.add("hidden"); releaseGameFrom("instance-modal"); });
     if (!api.event || typeof api.event.listen !== "function") return;
     Promise.resolve(api.event.listen("second-instance", function () {
+      holdGameFor("instance-modal");
       modal.classList.remove("hidden");
       byId("instance-ok-btn").focus();
     })).catch(function () {});
@@ -5472,6 +5507,12 @@
     return "checkpoint-" + Date.now() + "-" + Math.floor(Math.random() * 1e6);
   }
 
+  /* A deep copy of the plain data a checkpoint holds (arrays, objects,
+     strings, numbers). */
+  function copySessionValue(v) {
+    return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+  }
+
   function saveQuizProgress() {
     var q = state.quiz;
     if (!q.order.length || !state.unitText) return;
@@ -5487,14 +5528,16 @@
       bankId: undefined, // filled in below, once this bank's ID is known
       answeredCount: answered, totalCount: q.order.length,
       unitText: state.unitText,
-      mode: q.mode, seed: q.seed, options: q.options, poolIds: q.poolIds,
+      // Copies, not the live attempt: the desktop save waits for the bank's
+      // ID, and answers given meanwhile mustn't change what was saved.
+      mode: q.mode, seed: q.seed, options: copySessionValue(q.options), poolIds: copySessionValue(q.poolIds),
       // The exact questions and choices, so resuming never depends on
       // how choices happen to be generated in a later version.
       generator: 3,
       orderIds: q.order.map(function (item) { return item.id; }),
       tfFlags: q.tfFlags.slice(),
-      choices: q.choices,
-      answers: q.answers, index: q.index, showProgress: state.showProgress,
+      choices: copySessionValue(q.choices),
+      answers: q.answers.slice(), index: q.index, showProgress: state.showProgress,
       showSeed: state.showSeed, sessionExpanded: state.sessionExpanded
     };
     if (hasDesktop) {
@@ -5745,8 +5788,12 @@
   /* Checkpoint tiles are cached by file time and size, so only new or
      changed checkpoints are read and validated again. */
   var checkpointInfoCache = new Map();
+  /* Bumped by every list render: only the newest one draws, and only it
+     updates the cache (an older answer may describe files since changed). */
+  var checkpointsRender = 0;
 
-  function listCheckpointInfo() {
+  function listCheckpointInfo(isCurrent) {
+    var current = isCurrent || function () { return true; };
     var describe = function (id, text) {
       try { return describeCheckpoint(id, text); }
       catch (err) { return { id: id, ok: false, savedAt: "", title: "Unreadable checkpoint" }; }
@@ -5759,14 +5806,14 @@
     return desktopCall("list_checkpoint_meta").then(function (metas) {
       if (!Array.isArray(metas)) return full();
       var ids = new Set(metas.map(function (m) { return m[0]; }));
-      checkpointInfoCache.forEach(function (_, k) { if (!ids.has(k)) checkpointInfoCache.delete(k); });
+      if (current()) checkpointInfoCache.forEach(function (_, k) { if (!ids.has(k)) checkpointInfoCache.delete(k); });
       return mapLimited(metas, 4, function (m) {
         var id = m[0], stamp = m[1] + ":" + m[2];
         var hit = checkpointInfoCache.get(id);
         if (hit && hit.stamp === stamp) return hit.info;
         return desktopCall("read_checkpoint", { id: id })
           .then(function (text) { return describe(id, text); }, function () { return describe(id, ""); })
-          .then(function (info) { checkpointInfoCache.set(id, { stamp: stamp, info: info }); return info; });
+          .then(function (info) { if (current()) checkpointInfoCache.set(id, { stamp: stamp, info: info }); return info; });
       });
     }, full);
   }
@@ -5783,8 +5830,11 @@
     if (!grid) return;
     if (errorEl) errorEl.textContent = "";
     grid.textContent = "";
-    listCheckpointInfo()
+    var mine = ++checkpointsRender;
+    var current = function () { return mine === checkpointsRender; };
+    listCheckpointInfo(current)
       .then(function (items) {
+        if (!current()) return;
         grid.textContent = "";
         items.sort(function (a, b) { return (b.savedAt || "").localeCompare(a.savedAt || ""); });
         if (!items.length) {
@@ -5796,7 +5846,7 @@
         }
         items.forEach(function (item) { grid.appendChild(buildCheckpointTile(item)); });
       })
-      .catch(function (err) { notifyError(err.message); });
+      .catch(function (err) { if (current()) notifyError(err.message); });
   }
 
   function buildCheckpointTile(item) {
@@ -6549,7 +6599,7 @@
       var blobUrl = im.bytes && typeof Blob === "function" ? URL.createObjectURL(new Blob([im.bytes], { type: im.type })) : null;
       if (blobUrl) made.push(blobUrl);
       return measureImage(blobUrl || src, im.name).then(function (dim) {
-        rememberChecked(src);
+        rememberChecked(src, dim);
         out[im.n] = { name: im.name, src: src, id: im.id, width: dim.width, height: dim.height, blobUrl: blobUrl };
         return next();
       });
@@ -6573,11 +6623,24 @@
      and all of them together within the total. A picture that passed once
      isn't decoded again this session. Pictures in the desktop app's own
      store ("asset:") were checked when they were stored. */
-  var checkedPictures = new Set(), checkedChars = 0;
-  function rememberChecked(src) {
+  // src -> its measured size: a later bank with the same picture still has
+  // its stated size compared, without decoding the picture again.
+  var checkedPictures = new Map(), checkedChars = 0;
+  function rememberChecked(src, dim) {
     // Kept within bounds: past ~100 MB of picture text, start again.
     if (checkedChars + src.length > 100 * 1024 * 1024) { checkedPictures.clear(); checkedChars = 0; }
-    if (!checkedPictures.has(src)) { checkedPictures.add(src); checkedChars += src.length; }
+    if (!checkedPictures.has(src)) checkedChars += src.length;
+    checkedPictures.set(src, { width: dim.width, height: dim.height });
+  }
+  /* Sizes are written as whole pixels; a big picture may be a pixel off
+     (an SVG with a fractional size rounds differently between browsers),
+     a small one must match exactly, since a pixel changes its shape. */
+  function sizeMatches(dim, im) {
+    var near = function (a, b) { return a === b || (Math.abs(a - b) <= 1 && a >= 100); };
+    return near(dim.width, im.width) && near(dim.height, im.height);
+  }
+  function sizeError(dim, im) {
+    return new Error("\"" + im.name + "\" is " + dim.width + "×" + dim.height + " pixels, but this bank says " + im.width + "×" + im.height + ". Load the original .zip again.");
   }
   function inlinePictureBytes(src) {
     var b64 = src.slice(src.indexOf(",") + 1);
@@ -6590,8 +6653,10 @@
       if (err || im.src.indexOf("data:") !== 0) return;
       var size = inlinePictureBytes(im.src);
       total += size;
+      var known = checkedPictures.get(im.src);
       if (size > MAX_IMAGE_BYTES) err = new Error("\"" + im.name + "\" is larger than 8 MB. Make it smaller and load the .zip again.");
-      else if (!checkedPictures.has(im.src)) list.push(im);
+      else if (!known) list.push(im);
+      else if (!sizeMatches(known, im)) err = sizeError(known, im);
     });
     if (!err && total > MAX_IMAGES_TOTAL) err = new Error("This bank's pictures add up to more than 25 MB. Make them smaller and load the .zip again.");
     var tagged = function (e) { if (e && typeof e === "object") e.picture = true; throw e; };
@@ -6601,11 +6666,8 @@
       if (failed || i >= list.length) return Promise.resolve();
       var im = list[i++];
       return measureImage(im.src, im.name).then(function (dim) {
-        // Sizes are written rounded to whole pixels.
-        if (!(Math.abs(dim.width - im.width) <= 1 && Math.abs(dim.height - im.height) <= 1)) {
-          throw new Error("\"" + im.name + "\" is " + dim.width + "×" + dim.height + " pixels, but this bank says " + im.width + "×" + im.height + ". Load the original .zip again.");
-        }
-        rememberChecked(im.src);
+        rememberChecked(im.src, dim);
+        if (!sizeMatches(dim, im)) throw sizeError(dim, im);
         return next();
       });
     };
@@ -15318,6 +15380,21 @@
     }
   });
 
+  /* An app notice over a running game (another copy was started, a quit
+     problem) holds the game still until it's closed, then lets it go on
+     as it was: a game that was already paused stays paused. */
+  var heldByNotice = null;
+  function holdGameFor(modalId) {
+    if (heldByNotice || !game || game.over || game.paused || state.screen !== "game") return;
+    heldByNotice = modalId;
+    setGamePausedQuiet(true);
+  }
+  function releaseGameFrom(modalId) {
+    if (heldByNotice !== modalId) return;
+    heldByNotice = null;
+    if (game && !game.over && game.paused) setGamePausedQuiet(false);
+  }
+
   function setGamePausedQuiet(paused) {
     if (!game || game.over) return;
     game.paused = paused;
@@ -15821,6 +15898,9 @@
     // Shortcuts like Ctrl+C or Alt+Tab aren't game keys.
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (!byId("fish-shop-modal").classList.contains("hidden")) return;
+    // Any other dialog over the game (a notice, a quit problem) owns the
+    // keys; only the pause menu leaves P and Escape to the game.
+    if (document.querySelector(".modal-overlay:not(.hidden):not(#game-pause-modal)")) return;
     var k = event.key.toLowerCase();
     if (k === "p" || k === "escape") {
       event.preventDefault();
@@ -15988,8 +16068,13 @@
       whenProgressReady(function () {
         if (gameSetupFor !== resetId) return;
         resetGameProgress(resetId);
-        renderProgressPanel(gameSetupFor);
+        // Rebuild the setup as if it had just been opened, so the game's own
+        // options (perks, tracks, maps, shortcuts...) and their text follow
+        // the reset straight away.
+        if (resetId === "fishing") byId("game-minutes").value = String(state.gameData.fishing.minutes);
+        renderProgressPanel(resetId);
         updateGameSetup();
+        onGameSetupOpened(resetId);
       });
     });
     byId("game-setup-back-btn").addEventListener("click", function () { renderGamesPage(); showScreen("games"); });

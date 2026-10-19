@@ -287,13 +287,14 @@
   /* Resolves once it's known whether this tab saves the bank. */
   function claimTabLock(title, token) {
     state.tabReadOnly = false;
+    state.tabTakeoverPending = false;
     if (hasDesktop) return Promise.resolve();
     // This tab saves this bank already (reopened, or read again).
     if (tabLock.release && tabLock.title === title) return Promise.resolve();
     if (tabLock.release) { tabLock.release(); tabLock.release = null; }
     tabLock.title = title;
     var locks = typeof navigator !== "undefined" && navigator.locks;
-    if (!locks || typeof locks.request !== "function") return Promise.resolve();
+    if (!locks || typeof locks.request !== "function") { watchOtherTabs(); return Promise.resolve(); }
     var decided;
     var known = new Promise(function (r) { decided = r; });
     var name = "study-website-progress:" + title;
@@ -309,25 +310,51 @@
       locks.request(name, function () {
         if (!current()) return null;
         var held = hold();
-        state.tabReadOnly = false;
-        if (state.screen === "game" && game && !game.over) {
-          notify("The other tab closed this bank. Reopen it here to save its progress.");
+        if (state.screen === "game" && game) {
+          // A game holds on to the old profile, so its progress can't be
+          // merged with what the other tab saved. Saving stays off until
+          // the game is left; then the newer progress is read (see
+          // finishTabTakeover, called by showScreen).
+          state.tabTakeoverPending = true;
+          notify("The other tab closed this bank. This game still isn't saved; leave it and this tab saves the bank's progress from then on.");
         } else {
-          notify("The other tab closed this bank, so this tab saves its progress now.");
-          // Read what the other tab saved, keeping what was marked here
-          // (marks and scores made before a load finishes are merged in).
-          var marks = state.completed, scores = state.highScores;
-          loadCompletedForUnit();
-          Object.keys(marks).forEach(function (k) { state.completed[k] = true; });
-          Object.keys(scores).forEach(function (k) { state.highScores[k] = scores[k]; });
-          completedRev++;
-          persistCompleted();
+          finishTabTakeover();
         }
         return held;
       }).catch(function () {});
       return null;
-    }).catch(function () { /* locks refused (a sandboxed frame): no lock */ decided(); });
+    }).catch(function () { /* locks refused (a sandboxed frame): no lock */ watchOtherTabs(); decided(); });
     return known;
+  }
+  /* Without locks (an old browser), the next best thing: when another tab
+     saves the bank this tab has open, this tab stops saving it, so it
+     can't write its older copy over that one. Opening the bank again reads
+     what was saved and starts saving here again. */
+  var watchingTabs = false;
+  function watchOtherTabs() {
+    if (watchingTabs || hasDesktop || typeof window === "undefined") return;
+    watchingTabs = true;
+    window.addEventListener("storage", function (e) {
+      if (!state.unit || state.tabReadOnly || e.key !== LOCAL_PREFIX + state.unit.unitTitle || e.newValue === null) return;
+      state.tabReadOnly = true;
+      notifyError("Another tab of this browser just saved this bank's progress, so this tab stops saving it (that tab's progress is kept). Open the bank again here to load it and save from this tab.");
+    });
+  }
+
+  /* This tab has the lock now: read what the other tab saved, keeping the
+     marks and scores made here meanwhile (they're merged into a load), and
+     start saving. */
+  function finishTabTakeover() {
+    state.tabTakeoverPending = false;
+    state.tabReadOnly = false;
+    if (!state.unit) return;
+    notify("The other tab closed this bank, so this tab saves its progress now.");
+    var marks = state.completed, scores = state.highScores;
+    loadCompletedForUnit();
+    Object.keys(marks).forEach(function (k) { state.completed[k] = true; });
+    Object.keys(scores).forEach(function (k) { state.highScores[k] = scores[k]; });
+    completedRev++;
+    persistCompleted();
   }
 
   /* Loads in the background. Anything marked before the load finishes is

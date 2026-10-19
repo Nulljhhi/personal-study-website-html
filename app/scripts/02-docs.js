@@ -119,6 +119,7 @@
     "- Completed questions are written to disk as soon as you reach the review page, so closing the app never loses them.",
     "- Pictures from .zip banks are kept once each in `images/`, named by their content, and saved banks and checkpoints point to them, so a picture used by a bank and several checkpoints is stored once. Pictures nothing uses any more are removed the next time the app starts after a bank or checkpoint was deleted, renamed or replaced (the `.check-pictures` file marks that one is due). Leave the `images/` folder in place: a saved bank needs it.",
     "- Only one copy of the app runs at a time, so two windows can't save over each other. Starting it again brings the open window forward and explains why the new copy closed. As a second safeguard the running copy holds a lock on the folder (the `.lock` file): a copy that somehow starts anyway, for example from another user account, says so and doesn't read or save anything.",
+    "- If another program changes a bank's progress file while the bank is open (a sync program such as OneDrive or Dropbox bringing progress from another computer, say), the app doesn't save over it: it says so, and opening the bank again loads that progress. A progress file saved by a newer version of the app is never overwritten by an older one.",
     "- Renaming a bank first copies every file it changes into `rename-backup/`. If the app stops partway through (a crash or a power cut), the next start puts those files back as they were before the rename and tells you; otherwise the copies are removed as soon as the rename is done.",
     "- Opened as a plain web page in a browser, the folder buttons are disabled and progress is kept in that browser's own storage. If the browser blocks or fills that storage (private windows often do), the app says progress is kept for this session only.",
     "- If a saved progress file can't be read, the app tells you and won't save over it, so it can still be recovered. Move or fix that file, then reopen the bank.",
@@ -128,7 +129,9 @@
     "",
     "## Loading your unit file",
     "",
-    "Open the study website and either drag the file onto the drop zone or press the select file button and pick the file. A .zip with the unit file and its pictures works the same way (see **Pictures and hotspot questions**, the next page). When the file parses, the Home screen appears with the unit title, the four study modes, and every question with its real answer. When something is wrong with the file, a message pops up in the corner naming the problem."
+    "Open the study website and either drag the file onto the drop zone or press the select file button and pick the file. A .zip with the unit file and its pictures works the same way (see **Pictures and hotspot questions**, the next page). When the file parses, the Home screen appears with the unit title, the four study modes, and every question with its real answer. When something is wrong with the file, a message pops up in the corner naming the problem.",
+    "",
+    "In a browser, progress is kept in that browser's storage. If the same bank is open in two tabs, only one of them saves it; the other says so, and saves again once the first tab closes the bank (after any game it's in has ended). In an older browser without this support, a tab stops saving a bank as soon as another tab saves it, and opening the bank again there picks up the saved progress.",
   ];
 
   var IMAGE_DOCS_LINES = [
