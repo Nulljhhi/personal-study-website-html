@@ -98,9 +98,10 @@ jobs:
             exit $status
           }
 
-  # The Windows/Tailscale web server (server/): its tests on each system,
-  # and the Windows exe as a downloadable artifact of every run.
-  server:
+  # The Windows/Tailscale web server (server/): its tests on Linux and
+  # Windows, and the Windows exe for each kind of PC (x64, ARM64, 32-bit)
+  # as downloadable artifacts of every run.
+  server-tests:
     strategy:
       fail-fast: false
       matrix:
@@ -119,13 +120,33 @@ jobs:
         working-directory: server
         run: cargo test --locked
 
-      - name: Build study-server.exe
-        if: matrix.platform == 'windows-latest'
+  server-exe:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
+          - arch: x86
+            target: i686-pc-windows-msvc
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build study-server-${{ matrix.arch }}.exe
         working-directory: server
-        run: cargo build --release --locked
+        shell: bash
+        run: |
+          cargo build --release --locked --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/study-server.exe study-server-${{ matrix.arch }}.exe
 
       - uses: actions/upload-artifact@v4
-        if: matrix.platform == 'windows-latest'
         with:
-          name: study-server-windows
-          path: server/target/release/study-server.exe
+          name: study-server-${{ matrix.arch }}
+          path: server/study-server-${{ matrix.arch }}.exe

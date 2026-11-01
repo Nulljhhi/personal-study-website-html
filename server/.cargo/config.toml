@@ -1,0 +1,5 @@
+# Windows builds made with Microsoft's toolchain (the CI and release builds,
+# x64 and ARM64) include the C runtime, so the exe runs on a PC without the
+# Visual C++ Redistributable installed.
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]

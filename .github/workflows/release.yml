@@ -112,7 +112,7 @@ jobs:
                 "- **Mac with Apple chip (M1 or newer):** the `aarch64.dmg`",
                 "- **Older Intel Mac:** the `x64.dmg`",
                 "- **Linux:** the `.AppImage` (any distro) or the `.deb` (Ubuntu/Debian)",
-                "- **Windows web server:** `study-server.exe` serves the app as a web page to this PC and your Tailscale devices only (see the README)",
+                "- **Windows web server:** `study-server-x64.exe` (most PCs), `study-server-arm64.exe` (Snapdragon / Windows on ARM) or `study-server-x86.exe` (32-bit Windows) serves the app as a web page to this PC and your Tailscale devices only (see the README)",
                 "",
                 "The first time you open it you'll see a security warning because the app isn't code-signed. See the README for the one-time fix for your system.",
               ].join("\n"),
@@ -174,22 +174,36 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
 
-  # The Windows web server (server/), attached to the same draft release.
+  # The Windows web server (server/), one exe per kind of PC, attached to
+  # the same draft release.
   build-server:
     needs: create-release
     runs-on: windows-latest
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
+          - arch: x86
+            target: i686-pc-windows-msvc
     steps:
       - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: ${{ matrix.target }}
 
-      - name: Test and build study-server.exe
+      - name: Build study-server-${{ matrix.arch }}.exe
         working-directory: server
+        shell: bash
         run: |
           cargo test --locked
-          cargo build --release --locked
+          cargo build --release --locked --target ${{ matrix.target }}
 
       - uses: actions/github-script@v8
         env:
@@ -201,8 +215,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: Number(process.env.RELEASE_ID),
-              name: "study-server.exe",
-              data: fs.readFileSync("server/target/release/study-server.exe"),
+              name: "study-server-${{ matrix.arch }}.exe",
+              data: fs.readFileSync("server/target/${{ matrix.target }}/release/study-server.exe"),
               headers: { "content-type": "application/octet-stream" },
             });
 

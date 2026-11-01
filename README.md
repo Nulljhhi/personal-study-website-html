@@ -32,9 +32,19 @@ If you'd rather not install anything, open `src/index.html` in any browser. Ever
 
 ## Windows web server (this PC and your Tailscale devices)
 
-`study-server.exe` (on the **Releases** page) serves the app as a web page, so you can use it from your phone, tablet or another computer on your [Tailscale](https://tailscale.com) network, without installing anything on them.
+`study-server` (on the **Releases** page) serves the app as a web page, so you can use it from your phone, tablet or another computer on your [Tailscale](https://tailscale.com) network, without installing anything on them.
 
-1. Double-click `study-server.exe` (Windows may warn that it isn't signed: **More info → Run anyway**). A window opens with the addresses to use, for example:
+Download the one for your PC. To check, open **Settings → System → About** and look at **System type**:
+
+| System type | File |
+| --- | --- |
+| 64-bit operating system, x64-based processor | `study-server-x64.exe` |
+| 64-bit operating system, ARM-based processor (Snapdragon, Surface Pro X and similar) | `study-server-arm64.exe` |
+| 32-bit operating system | `study-server-x86.exe` |
+
+"This app can't run on your PC" means the file is for a different kind of PC (or the download was damaged): get the one that matches your System type.
+
+1. Double-click the exe (Windows may warn that it isn't signed: **More info → Run anyway**). A window opens with the addresses to use, for example:
 
        Study Website server 2.1.0
          On this computer:  http://localhost:8787/
@@ -45,8 +55,8 @@ If you'd rather not install anything, open `src/index.html` in any browser. Ever
 
 Who can reach it: only this PC and devices on your tailnet. It listens only on this PC's loopback and Tailscale addresses, so other devices on your Wi-Fi or office network can't connect. It also closes any connection that isn't from this PC or a Tailscale address, and refuses requests sent under another website's name. If Tailscale isn't running yet when the server starts, its address is picked up once Tailscale connects.
 
-- **Port:** 8787 by default. Use another with `study-server.exe --port 9000` (or set `STUDY_SERVER_PORT`).
-- **This PC only:** `study-server.exe --local-only` turns Tailscale access off.
+- **Port:** 8787 by default. Use another with `--port 9000`, for example `study-server-x64.exe --port 9000` (or set `STUDY_SERVER_PORT`).
+- **This PC only:** `--local-only` turns Tailscale access off.
 - **Firewall:** the first time, Windows may ask whether to let the server through its firewall. Allow it, or Tailscale devices won't connect. To allow it later (from an admin terminal), with the port you use:
 
       netsh advfirewall firewall add rule name="Study Website server" dir=in action=allow protocol=TCP localport=8787 remoteip=100.64.0.0/10
@@ -61,7 +71,7 @@ Who can reach it: only this PC and devices on your tailnet. It listens only on t
 
 - `app/` holds the page's source, split into readable pieces: `app/index.html` (markup), `app/styles/*.css`, and `app/scripts/*.js` (numbered so they run in order: the study modes first, then shared game systems, one file per game, the bots and rivals, the game engine, and start-up wiring).
 - `src/index.html` is built from those with `node tools/build.js` and is what the app runs. Edit the files in `app/`, rebuild, and commit both; `node tools/build.js --check` (also run by the CI and release workflows) fails if they don't match.
-- `server/` is the Windows web server (`study-server.exe`): a small standalone Rust program with no dependencies that embeds `src/index.html`. Build it with `cd server && cargo build --release` (on Linux, `--target x86_64-pc-windows-gnu` with mingw-w64 cross-builds the exe).
+- `server/` is the Windows web server (`study-server.exe`): a small standalone Rust program with no dependencies that embeds `src/index.html`. Build it with `cd server && cargo build --release` (on Linux, `--target x86_64-pc-windows-gnu` or `i686-pc-windows-gnu` with mingw-w64 cross-builds the x64 or 32-bit exe; the ARM64 one is built by CI on Windows).
 - `src-tauri/src/` is the desktop side: `store.rs` (banks, bank IDs, progress, checkpoints, rename and delete, the folder lock), `images.rs` (the picture folder), `files.rs` (safe names and writes), `titles.rs`, `drops.rs`, and `main.rs` (the commands the page calls).
 
 ### Publishing a new version
@@ -75,7 +85,7 @@ Who can reach it: only this PC and devices on your tailnet. It listens only on t
 
 3. The **Release** workflow (Actions tab) builds Windows, Mac, and Linux versions in about 10–20 minutes into a hidden draft release, and makes it public once all of them have built. If one fails, nothing is published: delete the draft under **Releases**, fix the problem, and run it again. Share the release link.
 
-The tag must match the version in `tauri.conf.json` and both `Cargo.toml` files, with a `v` in front; the workflow stops if they differ. The release also attaches `study-server.exe`.
+The tag must match the version in `tauri.conf.json` and both `Cargo.toml` files, with a `v` in front; the workflow stops if they differ. The release also attaches the server for each kind of Windows PC (`study-server-x64.exe`, `-arm64.exe`, `-x86.exe`).
 
 ### Building on your own machine (Arch)
 
