@@ -23,7 +23,7 @@
   .docs-content h1 { font-size: 26px; margin: 0 0 14px; }
   .docs-content h2 { font-size: 20px; margin: 26px 0 8px; }
   .docs-content p { margin: 8px 0; }
-  .docs-content ul { margin: 8px 0; padding-left: 22px; }
+  .docs-content ul, .docs-content ol { margin: 8px 0; padding-left: 22px; }
   .docs-content li { margin: 4px 0; }
   .docs-content code { background: var(--surface-2); border-radius: 4px; padding: 1px 5px; }
   .docs-content pre {
