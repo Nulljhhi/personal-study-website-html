@@ -66,7 +66,7 @@ The tag must match the version in `tauri.conf.json` and `Cargo.toml`, with a `v`
 
 ### Troubleshooting
 
-- The app opens fullscreen and is designed for 1920×1080. Press **F11** to switch to a normal, resizable window; the layout scales to fit, and narrow windows get a stacked layout. Close it with **Quit** on the start screen (Alt+F4 also works); both wait for any save in progress.
+- The app opens fullscreen and is designed for 1920×1080. Press **F11** to switch to a normal, resizable window. Everything (text, buttons, pictures, games) scales continuously with the window, growing and shrinking as you drag its edge. A window wider than it is tall gets the landscape layout; a taller one (or a phone held upright) gets the stacked portrait layout, and turning a phone or tablet switches between them. On touch screens text never shrinks below a readable size; the page scrolls instead. Close it with **Quit** on the start screen (Alt+F4 also works); both wait for any save in progress.
 - Blank or white window on Linux: start it with `WEBKIT_DISABLE_DMABUF_RENDERER=1 study-website`.
 - The page is built into the app: after editing anything in `app/`, run `node tools/build.js` and then rebuild the app.
 

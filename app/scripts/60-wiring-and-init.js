@@ -319,7 +319,7 @@
   function init() {
     initStep("Window", function () {
       fitLayoutZoom();
-      window.addEventListener("resize", fitLayoutZoom);
+      watchLayout();
     });
 
     /* --- Theme: start from the OS preference, session-only --- */

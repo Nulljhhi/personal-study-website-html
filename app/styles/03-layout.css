@@ -5,9 +5,12 @@
      a maximized 1920px window is about 1536 units wide.
      ===================================================================== */
   html { zoom: 1.25; }
-  /* Other window sizes: the page scales so the same ~1536 x 864 layout
-     fits (fitLayoutZoom). Below about 1100px wide it switches to the
-     stacked "narrow" layout at normal size instead of shrinking further. */
+  /* Other window sizes: fitLayoutZoom replaces this zoom so the layout
+     always fills the window, growing and shrinking with it. Landscape
+     windows get the ~1536 x 864 layout; portrait windows (and phones on
+     their side) get the stacked "narrow" layout on a 720-unit-wide
+     canvas; "compact" (under 700 units, only phones) also drops the
+     grids to one column. */
   body.narrow .home-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   body.narrow .home-side { position: static; }
   body.narrow .game-layout, body.narrow #screen-game.wide-arena .game-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
@@ -27,9 +30,7 @@
   body.narrow .wrap { padding-left: 16px; padding-right: 16px; }
   body.narrow #flashcard-card { min-height: 300px; font-size: 26px; padding: 28px; }
   body.narrow .quiz-question { font-size: 24px; }
-  @media (max-width: 700px) {
-    body.narrow .games-grid, body.narrow .home-side .mode-buttons { grid-template-columns: minmax(0, 1fr); }
-  }
+  body.compact .games-grid, body.compact .home-side .mode-buttons { grid-template-columns: minmax(0, 1fr); }
 
   .wrap { padding-top: 56px; }
   .wrap-docs { max-width: 1100px; }

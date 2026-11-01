@@ -172,18 +172,91 @@
       .catch(function (err) { if (isLatestImport(token)) notifyError(err.message); });
   }
 
-  /* Fit the 1920x1080 design to the actual window: scale by width and
-     height (never above the designed 125%), and below ~1100px wide use
-     the stacked layout at 100% instead. */
-  var DESIGN_W = 1536, DESIGN_H = 864, NARROW_PX = 1100;
+  /* Scale the whole page to the window, continuously, in both directions.
+     The layout is drawn on a design canvas and CSS zoom stretches it to
+     the window, so every button, font, gap and picture grows and shrinks
+     together as the window is resized; there is no upper or lower stop.
+
+     The canvas follows the window's shape:
+       landscape (wider than tall)  1536 x 864 units (a 1920x1080 screen
+                                    shows it at 125%, as designed)
+       portrait  (taller than wide)  720 x 1280 units, with the stacked
+                                    one-column layout
+     Each is fitted by width and height (whichever is tighter), so a
+     rotation or a resize past square swaps layouts and rescales at once.
+
+     Touch screens (phones, tablets) keep text readable instead: the zoom
+     never drops below 0.8 in portrait or 0.7 in landscape, and the page
+     scrolls instead. A landscape canvas narrower than ~1200 units (a phone
+     on its side) uses the stacked layout too, and one narrower than 700
+     units also stacks the game and mode grids into a single column. */
+  var LAYOUT = {
+    landscape: { w: 1536, h: 864, touchFloor: 0.7 },
+    portrait: { w: 720, h: 1280, touchFloor: 0.8 }
+  };
+  var STACK_UNITS = 1200, COMPACT_UNITS = 700, MIN_ZOOM = 0.05;
+  var layoutState = { zoom: 0, orientation: "", stacked: null, compact: null };
+  function isTouchScreen() {
+    try { return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches); } catch (err) { return false; }
+  }
+  function windowSize() {
+    var de = document.documentElement;
+    return {
+      w: window.innerWidth || (de && de.clientWidth) || 1920,
+      h: window.innerHeight || (de && de.clientHeight) || 1080
+    };
+  }
+  function computeLayout(w, h, touch) {
+    var orientation = h > w ? "portrait" : "landscape";
+    var c = LAYOUT[orientation];
+    var z = Math.min(w / c.w, h / c.h);
+    if (touch) z = Math.max(z, Math.min(c.touchFloor, w / 360));
+    z = Math.max(MIN_ZOOM, Math.round(z * 1000) / 1000);
+    var units = w / z;
+    return {
+      zoom: z,
+      orientation: orientation,
+      stacked: orientation === "portrait" || units < STACK_UNITS,
+      compact: units < COMPACT_UNITS
+    };
+  }
   function fitLayoutZoom() {
-    var w = window.innerWidth || DESIGN_W * 1.25, h = window.innerHeight || DESIGN_H * 1.25;
-    var narrow = w < NARROW_PX;
-    var z = narrow ? 1 : Math.max(0.7, Math.min(1.25, w / DESIGN_W, h / DESIGN_H));
-    z = Math.round(z * 1000) / 1000;
-    document.documentElement.style.zoom = String(z);
-    document.documentElement.style.setProperty("--page-zoom", String(z));
-    document.body.classList.toggle("narrow", narrow);
+    var size = windowSize();
+    var next = computeLayout(size.w, size.h, isTouchScreen());
+    var root = document.documentElement, body = document.body;
+    if (next.zoom !== layoutState.zoom) {
+      root.style.zoom = String(next.zoom);
+      root.style.setProperty("--page-zoom", String(next.zoom));
+    }
+    if (next.orientation !== layoutState.orientation) {
+      root.setAttribute("data-orientation", next.orientation);
+      body.classList.toggle("landscape", next.orientation === "landscape");
+      body.classList.toggle("portrait", next.orientation === "portrait");
+    }
+    if (next.stacked !== layoutState.stacked) body.classList.toggle("narrow", next.stacked);
+    if (next.compact !== layoutState.compact) body.classList.toggle("compact", next.compact);
+    layoutState = next;
+  }
+  /* Resizes arrive many times a second while a window edge is dragged;
+     refit once per frame. Rotations and visual-viewport changes (phone
+     toolbars sliding in and out) refit too. */
+  var fitFrame = 0;
+  function scheduleFitLayout() {
+    if (fitFrame) return;
+    var raf = window.requestAnimationFrame || function (fn) { return setTimeout(fn, 16); };
+    fitFrame = raf(function () { fitFrame = 0; fitLayoutZoom(); });
+  }
+  function watchLayout() {
+    window.addEventListener("resize", scheduleFitLayout);
+    window.addEventListener("orientationchange", scheduleFitLayout);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", scheduleFitLayout);
+    try {
+      if (window.screen && screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", scheduleFitLayout);
+    } catch (err) { /* older browsers: resize covers it */ }
+    try {
+      var mq = window.matchMedia && window.matchMedia("(pointer: coarse)");
+      if (mq && mq.addEventListener) mq.addEventListener("change", scheduleFitLayout);
+    } catch (err) { /* no matchMedia: the pointer type never changes */ }
   }
 
   /* F11 switches between fullscreen and a normal, resizable window. */
