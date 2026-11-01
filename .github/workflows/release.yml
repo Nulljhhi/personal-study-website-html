@@ -34,8 +34,10 @@ jobs:
         run: |
           conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
           cargo=$(grep -m1 '^version' src-tauri/Cargo.toml | sed -E 's/version *= *"(.*)"/\1/')
-          echo "tauri.conf.json: $conf  Cargo.toml: $cargo  ref: $GITHUB_REF_NAME"
+          server=$(grep -m1 '^version' server/Cargo.toml | sed -E 's/version *= *"(.*)"/\1/')
+          echo "tauri.conf.json: $conf  Cargo.toml: $cargo  server/Cargo.toml: $server  ref: $GITHUB_REF_NAME"
           [ "$conf" = "$cargo" ] || { echo "::error::tauri.conf.json and Cargo.toml versions differ"; exit 1; }
+          [ "$conf" = "$server" ] || { echo "::error::server/Cargo.toml has a different version"; exit 1; }
           if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$conf" ]; then
             echo "::error::Tag $GITHUB_REF_NAME doesn't match version v$conf"; exit 1
           fi
@@ -60,6 +62,10 @@ jobs:
 
       - name: Rust tests
         working-directory: src-tauri
+        run: cargo test --locked
+
+      - name: Server tests
+        working-directory: server
         run: cargo test --locked
 
       - name: Install test dependencies
@@ -106,6 +112,7 @@ jobs:
                 "- **Mac with Apple chip (M1 or newer):** the `aarch64.dmg`",
                 "- **Older Intel Mac:** the `x64.dmg`",
                 "- **Linux:** the `.AppImage` (any distro) or the `.deb` (Ubuntu/Debian)",
+                "- **Windows web server:** `study-server.exe` serves the app as a web page to this PC and your Tailscale devices only (see the README)",
                 "",
                 "The first time you open it you'll see a security warning because the app isn't code-signed. See the README for the one-time fix for your system.",
               ].join("\n"),
@@ -167,9 +174,41 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
 
+  # The Windows web server (server/), attached to the same draft release.
+  build-server:
+    needs: create-release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@1.95.0
+
+      - name: Test and build study-server.exe
+        working-directory: server
+        run: |
+          cargo test --locked
+          cargo build --release --locked
+
+      - uses: actions/github-script@v8
+        env:
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        with:
+          script: |
+            const fs = require("fs");
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: Number(process.env.RELEASE_ID),
+              name: "study-server.exe",
+              data: fs.readFileSync("server/target/release/study-server.exe"),
+              headers: { "content-type": "application/octet-stream" },
+            });
+
   # Runs only when every build above succeeded.
   publish-release:
-    needs: [create-release, build]
+    needs: [create-release, build, build-server]
     runs-on: ubuntu-22.04
     permissions:
       contents: write

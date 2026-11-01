@@ -97,3 +97,35 @@ jobs:
             grep -E "panicked at|^test .* FAILED|^error|left:|right:|^  [a-z].*:" test.log | head -30 | sed 's/^/::error::/'
             exit $status
           }
+
+  # The Windows/Tailscale web server (server/): its tests on each system,
+  # and the Windows exe as a downloadable artifact of every run.
+  server:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@1.95.0
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./server -> target"
+
+      - name: Server tests
+        working-directory: server
+        run: cargo test --locked
+
+      - name: Build study-server.exe
+        if: matrix.platform == 'windows-latest'
+        working-directory: server
+        run: cargo build --release --locked
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.platform == 'windows-latest'
+        with:
+          name: study-server-windows
+          path: server/target/release/study-server.exe

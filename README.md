@@ -30,6 +30,29 @@ The app isn't code-signed, so each system warns you the first time:
 
 If you'd rather not install anything, open `src/index.html` in any browser. Everything works except the folder features (saved banks and checkpoint tiles), and progress is saved in that browser's own storage (a private window may keep it for that session only).
 
+## Windows web server (this PC and your Tailscale devices)
+
+`study-server.exe` (on the **Releases** page) serves the app as a web page, so you can use it from your phone, tablet or another computer on your [Tailscale](https://tailscale.com) network, without installing anything on them.
+
+1. Double-click `study-server.exe` (Windows may warn that it isn't signed: **More info → Run anyway**). A window opens with the addresses to use, for example:
+
+       Study Website server 2.1.0
+         On this computer:  http://localhost:8787/
+         Over Tailscale:    http://100.101.102.103:8787/
+
+2. On this PC, open `http://localhost:8787/`. On your other Tailscale devices, open the Tailscale address it shows, or use the PC's Tailscale name (`http://my-pc:8787/` with MagicDNS).
+3. Close the window to stop the server.
+
+Who can reach it: only this PC and devices on your tailnet. It listens only on this PC's loopback and Tailscale addresses, so other devices on your Wi-Fi or office network can't connect. It also closes any connection that isn't from this PC or a Tailscale address, and refuses requests sent under another website's name. If Tailscale isn't running yet when the server starts, its address is picked up once Tailscale connects.
+
+- **Port:** 8787 by default. Use another with `study-server.exe --port 9000` (or set `STUDY_SERVER_PORT`).
+- **This PC only:** `study-server.exe --local-only` turns Tailscale access off.
+- **Firewall:** the first time, Windows may ask whether to let the server through its firewall. Allow it, or Tailscale devices won't connect. To allow it later (from an admin terminal), with the port you use:
+
+      netsh advfirewall firewall add rule name="Study Website server" dir=in action=allow protocol=TCP localport=8787 remoteip=100.64.0.0/10
+
+- **Your progress** is kept in each device's browser, the same as opening the page from a file. Saved banks, checkpoints and the `Documents/StudyWebsite` folder need the desktop app. Over Tailscale the page is plain `http://`, so two tabs of the same bank on one device use the older-browser rules described in the in-app documentation, and **Finding the coordinates** shows the hotspot line for you to copy by hand.
+
 ---
 
 ## For the maintainer
@@ -38,11 +61,12 @@ If you'd rather not install anything, open `src/index.html` in any browser. Ever
 
 - `app/` holds the page's source, split into readable pieces: `app/index.html` (markup), `app/styles/*.css`, and `app/scripts/*.js` (numbered so they run in order: the study modes first, then shared game systems, one file per game, the bots and rivals, the game engine, and start-up wiring).
 - `src/index.html` is built from those with `node tools/build.js` and is what the app runs. Edit the files in `app/`, rebuild, and commit both; `node tools/build.js --check` (also run by the CI and release workflows) fails if they don't match.
+- `server/` is the Windows web server (`study-server.exe`): a small standalone Rust program with no dependencies that embeds `src/index.html`. Build it with `cd server && cargo build --release` (on Linux, `--target x86_64-pc-windows-gnu` with mingw-w64 cross-builds the exe).
 - `src-tauri/src/` is the desktop side: `store.rs` (banks, bank IDs, progress, checkpoints, rename and delete, the folder lock), `images.rs` (the picture folder), `files.rs` (safe names and writes), `titles.rs`, `drops.rs`, and `main.rs` (the commands the page calls).
 
 ### Publishing a new version
 
-1. Bump the version in both `src-tauri/tauri.conf.json` (`"version"`) and `src-tauri/Cargo.toml` (`version = ...` under `[package]`), for example `1.0.0` → `1.1.0`, then run `cargo check` in `src-tauri` so `Cargo.lock` picks up the new version too.
+1. Bump the version in `src-tauri/tauri.conf.json` (`"version"`), `src-tauri/Cargo.toml` and `server/Cargo.toml` (`version = ...` under `[package]`), for example `1.0.0` → `1.1.0`, then run `cargo check` in `src-tauri` and in `server` so each `Cargo.lock` picks up the new version too.
 2. Commit (including `Cargo.lock`), tag, and push:
 
        git commit -am "Release v1.1.0"
@@ -51,7 +75,7 @@ If you'd rather not install anything, open `src/index.html` in any browser. Ever
 
 3. The **Release** workflow (Actions tab) builds Windows, Mac, and Linux versions in about 10–20 minutes into a hidden draft release, and makes it public once all of them have built. If one fails, nothing is published: delete the draft under **Releases**, fix the problem, and run it again. Share the release link.
 
-The tag must match the version in `tauri.conf.json` and `Cargo.toml`, with a `v` in front; the workflow stops if they differ.
+The tag must match the version in `tauri.conf.json` and both `Cargo.toml` files, with a `v` in front; the workflow stops if they differ. The release also attaches `study-server.exe`.
 
 ### Building on your own machine (Arch)
 
@@ -72,6 +96,7 @@ The tag must match the version in `tauri.conf.json` and `Cargo.toml`, with a `v`
 
 ## Tests
 
+- Server: `cd server && cargo test` (only loopback and Tailscale connections, the host-name check, and serving the page)
 - Rust: `cd src-tauri && cargo test` (saving, renaming, crash recovery, the picture store, and what happens when the disk refuses a write)
 - Frontend (Playwright + Chromium): `cd tests && npm ci && npx playwright install chromium && npm test` (`npm ci` installs exactly the versions in `package-lock.json`). `PW_BROWSER=webkit npm test` runs them in WebKit instead, after `npx playwright install webkit`. `core.test.js` runs the parser, hotspots and zip reader in plain Node, with no browser.
 - Script checks: `node tools/check-scripts.js` (after `npm ci` in `tests/`). All of `app/scripts/` runs in one shared scope, so this catches a name declared in two files, a name declared nowhere, and top-level code that uses a variable from a later file. It also makes sure `01-core.js` and the zip reader (which runs in a background worker) stand on their own.
